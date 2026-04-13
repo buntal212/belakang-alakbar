@@ -8,4 +8,5 @@ Route::group([
     'prefix' => 'master/unit'
 ], function () {
     Route::get('/getunit', [UnitController::class, 'index']);
+    Route::post('/simpan', [UnitController::class, 'store']);
 });
