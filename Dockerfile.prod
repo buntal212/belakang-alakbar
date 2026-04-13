@@ -1,0 +1,81 @@
+FROM arm64v8/php:8.3-fpm
+
+ARG user=kentang
+ARG uid=1000
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    unzip \
+    zip \
+    supervisor \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    libzip-dev \
+    openssl \
+    procps \
+    libbrotli-dev \
+    redis-tools \
+    netcat-openbsd \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install PHP extensions
+RUN docker-php-ext-install \
+    pdo_mysql \
+    mbstring \
+    exif \
+    pcntl \
+    bcmath \
+    gd \
+    zip \
+    sockets
+
+# Redis extension
+RUN pecl install redis && docker-php-ext-enable redis
+
+# Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Add application user
+RUN useradd -G www-data,root -u $uid -d /home/$user $user \
+    && mkdir -p /home/$user/.composer \
+    && chown -R $user:$user /home/$user
+
+# Set workdir
+WORKDIR /var/www
+
+# Supervisor dirs
+RUN mkdir -p /var/log/supervisor /var/run/supervisor /etc/supervisor/conf.d
+
+
+# Copy supervisord.conf ke dalam image
+COPY ./docker-compose/php/prod/supervisord/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Baru salin semua app source code
+COPY --chown=$user:$user . .
+
+# Permissions
+RUN chmod -R 755 /var/log/supervisor /var/run/supervisor && \
+    chown -R $user:$user /var/www /var/log/supervisor /var/run/supervisor
+
+# Pastikan storage & bootstrap/cache writable
+RUN mkdir -p /var/www/storage /var/www/bootstrap/cache && \
+    chown -R $user:$user /var/www/storage /var/www/bootstrap/cache && \
+    chmod -R 775 /var/www/storage /var/www/bootstrap/cache
+
+# Composer install production
+USER $user
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+
+# Copy dan setup entrypoint script
+COPY --chown=$user:$user docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Set entrypoint (wrap CMD)
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+
+EXPOSE 9000
+
+CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

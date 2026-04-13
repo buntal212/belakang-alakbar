@@ -1,0 +1,105 @@
+services:
+    app:
+        image: api-alakbar-app
+        build:
+            args:
+                user: alakbar
+                uid: 1001
+            context: ./
+            dockerfile: Dockerfile.dev
+        container_name: api-alakbar-app
+        working_dir: /var/www/
+        restart: unless-stopped
+        # ports:
+        #     - "8002:8000" # Menghindari konflik port dengan Nginx
+        environment:
+            - COMPOSER_MEMORY_LIMIT=-1
+        volumes:
+            - ./:/var/www
+        networks:
+            - alakbarnet
+        depends_on:
+            # - db
+            - redis
+
+    # db:
+    #     image: mysql/mysql-server:5.7
+    #     platform: linux/amd64
+    #     container_name: mysql_api-alakbar
+    #     restart: unless-stopped
+    #     environment:
+    #         MYSQL_DATABASE: ${DB_DATABASE:-local_laravel}
+    #         MYSQL_USER: ${DB_USERNAME:-local_developer}
+    #         MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+    #         MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-secret}
+    #     ports:
+    #         - "3356:3306"
+    #     volumes:
+    #         - mysql_data:/var/lib/mysql
+    #         - ./docker-compose/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+    #     networks:
+    #         - alakbarnet
+    #     healthcheck:
+    #         test:
+    #             [
+    #                 "CMD-SHELL",
+    #                 "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD}",
+    #             ]
+    #         interval: 10s
+    #         timeout: 5s
+    #         retries: 10
+
+    nginx:
+        image: nginx:alpine
+        container_name: nginx_api-alakbar
+        restart: unless-stopped
+        depends_on:
+            - app
+
+        ports:
+            - "8196:80"
+        volumes:
+            - ./:/var/www
+            - ./docker-compose/nginx:/etc/nginx/conf.d
+        networks:
+            - alakbarnet
+        healthcheck:
+            test: ["CMD-SHELL", "curl -f http://localhost || exit 1"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 30s
+
+    redis:
+        image: redis:7
+        container_name: redis-server-api-alakbar
+        restart: unless-stopped
+        volumes:
+            - redis_data:/data
+        ports:
+            - "26751:6379"
+        networks:
+            - alakbarnet
+
+    scheduler:
+        image: api-alakbar-app # Pakai image dari app
+        container_name: api-alakbar-scheduler
+        command: ["php", "artisan", "schedule:work"]
+        depends_on:
+            - app
+            - redis
+            # - db
+        volumes:
+            - ./:/var/www
+        env_file:
+            - .env
+        networks:
+            - alakbarnet
+
+volumes:
+    # mysql_data:
+    redis_data:
+
+networks:
+    alakbarnet:
+        driver: bridge

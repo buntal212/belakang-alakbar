@@ -1,0 +1,105 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: sa_app
+    # user: root
+    ports:
+      - "9001:9000"
+    restart: unless-stopped
+    environment:
+      - APP_ENV=production
+      - COMPOSER_ALLOW_SUPERUSER=1
+    volumes:
+        - ./app:/var/www/app
+        - ./routes:/var/www/routes
+        - ./resources:/var/www/resources
+        - ./composer.json:/var/www/composer.json
+        - ./composer.lock:/var/www/composer.lock
+        # - ./:/var/www
+        # - /var/www/vendor
+        # - /var/www/bootstrap/cache
+        # - /var/www/storage
+        - ./.env.production:/var/www/.env:ro
+        - ./docker-compose/php/prod/php.prod.ini:/usr/local/etc/php/php.ini:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "pgrep", "php-fpm"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - default
+      - sa_shared
+
+  nginx:
+    build:
+      context: ./docker-compose/nginx
+      dockerfile: Dockerfile.prod
+    container_name: sa_nginx
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "8182:80"
+    volumes:
+      - ./:/var/www:ro   # mount root project Laravel
+      # - ./public:/var/www/public:ro   # mount root project Laravel
+    networks:
+      - default
+      - sa_shared
+
+  mysql:
+    image: mysql:8.0
+    container_name: sa_mysql
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_USER: ${DB_USERNAME}
+    volumes:
+      - dbdata:/var/lib/mysql/
+      - ./docker-compose/mysql/my.conf:/etc/mysql/conf.d/my.cnf
+    networks:
+      - default
+      - sa_shared
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-psasa0102"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  redis:
+    image: redis:alpine
+    container_name: sa_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - default
+      - sa_shared
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  default:
+  sa_shared:
+    external: true
+
+volumes:
+  dbdata:
+  redis_data:
