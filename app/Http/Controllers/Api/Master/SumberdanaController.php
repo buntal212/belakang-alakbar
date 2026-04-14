@@ -4,16 +4,16 @@ namespace App\Http\Controllers\Api\Master;
 
 use App\Helpers\Formating\FormatingHelper;
 use App\Http\Controllers\Controller;
-use App\Models\Master\Unit;
-use Illuminate\Http\JsonResponse;
+use App\Models\Master\Sumberdana;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
-class UnitController extends Controller
+class SumberdanaController extends Controller
 {
     public function index()
     {
-        $query = Unit::where(function ($q) {
+        $query = Sumberdana::where(function ($q) {
             $q->where('flaging', '<>', '1')
             ->orWhereNull('flaging');
         })->orderBy('kode');
@@ -23,7 +23,7 @@ class UnitController extends Controller
 
             $query->where(function ($q) use ($search) {
                 $q->where('kode', 'like', "%$search%")
-                ->orWhere('nama_unit', 'like', "%$search%");
+                ->orWhere('kegiatan', 'like', "%$search%");
             });
         }
 
@@ -35,20 +35,20 @@ class UnitController extends Controller
     {
         $kode = $request->kode ?? null;
         $validated = $request->validate([
-            'nama_unit' => 'required',
+            'kegiatan' => 'required',
         ], [
 
-            'nama_unit.required' => 'Nama harus di isi',
+            'kegiatan.required' => 'Kegiatan harus di isi',
         ]);
 
         try {
             DB::beginTransaction();
                 if (!$kode) {
-                    DB::select('call masterunit(@nomor)');
-                    $nomor = DB::table('counter')->select('masterunit')->first();
-                    $kode = FormatingHelper::genKodeMaster($nomor->masterunit, 'U');
+                    DB::select('call msumberdana(@nomor)');
+                    $nomor = DB::table('counter')->select('msumberdana')->first();
+                    $kode = FormatingHelper::genKodeMaster($nomor->msumberdana, 'SD');
                 }
-                $data = Unit::updateOrCreate(
+                $data = Sumberdana::updateOrCreate(
                     [
                         'kode' => $kode
                     ],
@@ -84,7 +84,7 @@ class UnitController extends Controller
 
         try {
             DB::beginTransaction();
-                $update = Unit::find($id);
+                $update = Sumberdana::find($id);
 
                 if ($update) {
                     $update->flaging = '1';

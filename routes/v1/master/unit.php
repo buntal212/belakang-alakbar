@@ -9,4 +9,5 @@ Route::group([
 ], function () {
     Route::get('/getunit', [UnitController::class, 'index']);
     Route::post('/simpan', [UnitController::class, 'store']);
+    Route::post('/delete', [UnitController::class, 'destroy']);
 });
