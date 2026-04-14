@@ -39,7 +39,11 @@ class AuthController extends Controller
         if ($user->kode === 'X00X') {
 
             // ADMIN / SUPER USER
-            $menus = Menus::with('submenus')->get();
+            $menus = Menus::with([
+                'submenus' => function($q){
+                    $q->orderBy('urut');
+                }
+            ])->orderBy('urut')->get();
 
         } else {
 
