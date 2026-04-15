@@ -8,6 +8,7 @@ Route::group([
     'prefix' => 'master/unit'
 ], function () {
     Route::get('/getunit', [UnitController::class, 'index']);
+     Route::get('/getall', [UnitController::class, 'getall']);
     Route::post('/simpan', [UnitController::class, 'store']);
     Route::post('/delete', [UnitController::class, 'destroy']);
 });

@@ -8,6 +8,7 @@ Route::group([
     'prefix' => 'master/jabatan'
 ], function () {
     Route::get('/getjabatan', [JabatanController::class, 'index']);
+    Route::get('/getall', [JabatanController::class, 'getall']);
     Route::post('/simpan', [JabatanController::class, 'store']);
      Route::post('/delete', [JabatanController::class, 'destroy']);
 });
