@@ -1,15 +1,14 @@
 <?php
 
-namespace App\Http\Controllers\Api\Pengeluarantkkb;
+namespace App\Http\Controllers\Api\Pengeluaransd;
 
 use App\Helpers\Formating\FormatingHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Pengeluaranyayasan\Pengajuanup;
-
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
 class PengajuanUpController extends Controller
 {
@@ -19,7 +18,7 @@ class PengajuanUpController extends Controller
             [
                 'unit'
             ]
-        )->where('unit','U002')
+        )->where('unit','U003')
         ->orderBy('created_at','desc');
 
         // if (request('search')) {
@@ -51,10 +50,10 @@ class PengajuanUpController extends Controller
         try {
             DB::beginTransaction();
                 if (!$kode) {
-                    DB::select('call pengajuanupbendtktb(@nomor)');
-                    $nomor = DB::table('counter')->select('pengajuanupbendtktb')->first();
+                    DB::select('call pengajuanupbendsd(@nomor)');
+                    $nomor = DB::table('counter')->select('pengajuanupbendsd')->first();
                     $semester = 'S1';
-                    $kode = FormatingHelper::notrans($nomor->pengajuanupbendtktb, 'UP', $semester,'TK');
+                    $kode = FormatingHelper::notrans($nomor->pengajuanupbendsd, 'UP', $semester,'SD');
                 }
                 $cek = Pengajuanup::where('no_pengajuan', $kode)->where('flaging','!=','1')->count();
                 if($cek > 0){
@@ -66,7 +65,7 @@ class PengajuanUpController extends Controller
                         'no_pengajuan' => $kode
                     ],[
                         'tgl' => $validated['tgl'],
-                        'unit' => 'U002',
+                        'unit' => 'U003',
                         'user' => $user->kode,
                         'nilai_pengajuan' =>$validated['nilai_pengajuan']
                     ]
