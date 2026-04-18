@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Pengeluaranyayasan;
 
 use App\Helpers\Formating\FormatingHelper;
 use App\Http\Controllers\Controller;
+use App\Models\Master\Saldo;
 use App\Models\Pengeluaranyayasan\Pengajuanup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -54,7 +55,7 @@ class PengajuanUpController extends Controller
                     $semester = 'S1';
                     $kode = FormatingHelper::notrans($nomor->pengajuanupbendyas, 'UP', $semester,'YS');
                 }
-                $cek = Pengajuanup::where('no_pengajuan', $kode)->where('unit','U001')->where('flaging','!=','1')->count();
+                $cek = Pengajuanup::where('no_pengajuan', $kode)->where('flaging','!=','1')->count();
                 if($cek > 0){
                     return new JsonResponse(['message' => 'Data Sudah DiVerif!!!'],500);
                 }
@@ -76,7 +77,7 @@ class PengajuanUpController extends Controller
                         'unit'
                     ]
                 )
-                ->where('no_pengajuan', $kode)->where('unit','U002')->get();
+                ->where('no_pengajuan', $kode)->get();
                 return new JsonResponse([
                     'data' => $result,
                     'message' => 'Data berhasil disimpan'
@@ -125,6 +126,58 @@ class PengajuanUpController extends Controller
                     'data' => $data ,
                     'status' => 'OK',
                     'message' => 'Data berhasil dihapus'
+                ]);
+
+        }catch (\Exception $e) {
+            DB::rollBack();
+                return new JsonResponse([
+                    'message' => 'Gagal menyimpan data: ' . $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => $e->getTrace(),
+
+                ], 410);
+        }
+    }
+
+     public function terimaUang(Request $request)
+    {
+        $validated = $request->validate([
+            'no_pengajuan' => 'required',
+            'nilai_persetujuan' => 'required'
+        ], [
+            'no_pengajuan' => 'No. Pengajuan Harus di isi',
+            'nilai_persetujuan' => 'Nilai Persetujuan Harus Diisi...'
+        ]);
+
+        try {
+            DB::beginTransaction();
+                $cek = Pengajuanup::where('no_pengajuan', $validated['no_pengajuan'])->where('flaging','!=','2')->count();
+                if($cek > 0){
+                    return new JsonResponse(['message' => 'UP ini Belum DiVerif!!!'],500);
+                }
+
+                $user = Auth::user();
+                $data = Pengajuanup::updateOrCreate(
+                    [
+                        'no_pengajuan' => $validated['no_pengajuan']
+                    ],[
+                        'tgl_terima' => date('Y-m-d'),
+                    ]
+
+                );
+                 $saldo = Saldo::where('pemilik', 'U000002')->first();
+                 $saldo->nominal = (int) $saldo->nominal + (int) $validated['nilai_persetujuan'];
+            DB::commit();
+                $result = Pengajuanup::with(
+                    [
+                        'unit'
+                    ]
+                )
+                ->where('no_pengajuan', $validated['no_pengajuan'])->get();
+                return new JsonResponse([
+                    'data' => $result,
+                    'message' => 'Data berhasil disimpan'
                 ]);
 
         }catch (\Exception $e) {

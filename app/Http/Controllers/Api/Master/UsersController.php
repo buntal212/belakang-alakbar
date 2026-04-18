@@ -33,69 +33,106 @@ class UsersController extends Controller
     }
 
     public function store(Request $request)
-{
-    $kode = $request->kode ?? null;
+    {
+        $kode = $request->kode ?? null;
 
-    $validated = $request->validate([
-        'username' => [
-        'required',
-            Rule::unique('users', 'username')->ignore($kode, 'kode') // 🔥 penting untuk edit
-        ],
-        'name'     => 'required',
-        'email'    => 'required|email',
-        'pass'     => 'required',
-        'jabatan'  => 'required',
-        'unit'     => 'required',
-    ], [
-        'username.required' => 'Username harus diisi',
-        'username.unique'   => 'Username sudah digunakan',
-        'name.required'     => 'Nama harus diisi',
-        'email.required'    => 'Email harus diisi',
-        'email.email'       => 'Format email tidak valid',
-        'pass.required'     => 'Password harus diisi',
-        'jabatan.required'  => 'Jabatan harus dipilih',
-        'unit.required'     => 'Unit harus dipilih',
-    ]);
-
-    try {
-        DB::beginTransaction();
-
-        if (!$kode) {
-            DB::select('call masteruser(@nomor)'); // 🔥 ganti sesuai kebutuhan
-            $nomor = DB::table('counter')->select('masteruser')->first();
-            $kode = FormatingHelper::genKodeMaster($nomor->masteruser, 'U');
-        }
-
-        $data = User::updateOrCreate(
-            [
-                'kode' => $kode
+        $validated = $request->validate([
+            'username' => [
+            'required',
+                Rule::unique('users', 'username')->ignore($kode, 'kode') // 🔥 penting untuk edit
             ],
-            [
-                'username' => $validated['username'],
-                'name'     => $validated['name'],
-                'email'    => $validated['email'],
-                'password' => bcrypt($validated['pass']), // 🔥 penting!
-                'pass'     => $validated['pass'],
-                'jabatan'  => $validated['jabatan'],
-                'unit'     => $validated['unit'],
-            ]
-        );
-
-        DB::commit();
-
-        return new JsonResponse([
-            'data' => $data,
-            'message' => 'Data berhasil disimpan'
+            'name'     => 'required',
+            'email'    => 'required|email',
+            'pass'     => 'required',
+            'jabatan'  => 'required',
+            'unit'     => 'required',
+        ], [
+            'username.required' => 'Username harus diisi',
+            'username.unique'   => 'Username sudah digunakan',
+            'name.required'     => 'Nama harus diisi',
+            'email.required'    => 'Email harus diisi',
+            'email.email'       => 'Format email tidak valid',
+            'pass.required'     => 'Password harus diisi',
+            'jabatan.required'  => 'Jabatan harus dipilih',
+            'unit.required'     => 'Unit harus dipilih',
         ]);
 
-    } catch (\Exception $e) {
-        DB::rollBack();
+        try {
+            DB::beginTransaction();
 
-        return new JsonResponse([
-            'message' => 'Gagal menyimpan data: ' . $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-        ], 500);
+            if (!$kode) {
+                DB::select('call masteruser(@nomor)'); // 🔥 ganti sesuai kebutuhan
+                $nomor = DB::table('counter')->select('masteruser')->first();
+                $kode = FormatingHelper::genKodeMaster($nomor->masteruser, 'U');
+            }
+
+            $data = User::updateOrCreate(
+                [
+                    'kode' => $kode
+                ],
+                [
+                    'username' => $validated['username'],
+                    'name'     => $validated['name'],
+                    'email'    => $validated['email'],
+                    'password' => bcrypt($validated['pass']), // 🔥 penting!
+                    'pass'     => $validated['pass'],
+                    'jabatan'  => $validated['jabatan'],
+                    'unit'     => $validated['unit'],
+                ]
+            );
+
+            DB::commit();
+
+            return new JsonResponse([
+                'data' => $data,
+                'message' => 'Data berhasil disimpan'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return new JsonResponse([
+                'message' => 'Gagal menyimpan data: ' . $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ], 500);
+        }
     }
-}
+
+    public function destroy(Request $request)
+    {
+        $id = $request->id ?? null;
+        $validated = $request->validate([
+            'id' => 'required',
+        ], [
+
+            'id.required' => 'Data Tidak Bisa Dihapus,karena Tidak mempunyai ID!!!',
+        ]);
+
+        try {
+            DB::beginTransaction();
+                $update = User::find($id);
+
+                if ($update) {
+                    $update->flaging = '1';
+                    $update->save();
+                }
+            DB::commit();
+                return new JsonResponse([
+                    'data' => $update,
+                    'status' => 'OK',
+                    'message' => 'Data berhasil dihapus'
+                ]);
+
+        }catch (\Exception $e) {
+            DB::rollBack();
+                return new JsonResponse([
+                    'message' => 'Gagal menyimpan data: ' . $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => $e->getTrace(),
+
+                ], 410);
+        }
+    }
 }
