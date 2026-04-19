@@ -9,5 +9,5 @@ Route::group([
 ], function () {
     Route::get('/get-list', [VerifikasiUpController::class, 'index']);
     Route::post('/simpan', [VerifikasiUpController::class, 'store']);
-    Route::post('/delete', [VerifikasiUpController::class, 'tolak']);
+    Route::post('/tolak', [VerifikasiUpController::class, 'tolak']);
 });
