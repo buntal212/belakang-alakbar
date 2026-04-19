@@ -82,4 +82,51 @@ class VerifikasiUpController extends Controller
                 ], 410);
         }
     }
+
+    public function tolak(Request $request)
+    {
+        $validated = $request->validate([
+            'id' => 'required',
+        ], [
+            'id.required' => 'Id harus di isi',
+        ]);
+
+        try {
+            DB::beginTransaction();
+                $user = Auth::user();
+                $data = Pengajuanup::updateOrCreate(
+                    [
+                        'id' => $validated['id']
+                    ],[
+                        'flaging' => '3',
+                        'tgl_flag' => date('Y-m-d'),
+                        'unit_flag' => 'U002',
+                        'user_flag' => $user->kode,
+                    ]
+
+                );
+            DB::commit();
+                $result = Pengajuanup::with(
+                    [
+                        'unit'
+                    ]
+                )
+                ->where('id', $validated['id'])->get();
+                return new JsonResponse([
+                    'data' => $result,
+                    'status' => 'OK',
+                    'message' => 'Data berhasil ditolak'
+                ]);
+
+        }catch (\Exception $e) {
+            DB::rollBack();
+                return new JsonResponse([
+                    'message' => 'Gagal menyimpan data: ' . $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => $e->getTrace(),
+
+                ], 410);
+        }
+    }
 }
