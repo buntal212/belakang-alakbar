@@ -37,13 +37,11 @@ class VerifikasiUpController extends Controller
     {
         $validated = $request->validate([
             'no_pengajuan' => 'required',
-            'nilai_persetujuan' => 'required',
-            'unit' => 'required'
+            'nilai_persetujuan' => 'required'
         ], [
 
             'no_pengajuan.required' => 'Tanggal harus di isi',
-            'nilai_persetujuan.required' => 'Nilai Persetujuan harus di isi',
-            'unit.required' => 'Unit harus di isi',
+            'nilai_persetujuan.required' => 'Nilai Persetujuan harus di isi'
         ]);
 
         try {
