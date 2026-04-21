@@ -2,6 +2,7 @@
 
 namespace App\Models\Pengeluaranyayasan;
 
+use App\Models\Master\Jabatan;
 use App\Models\Master\Unit;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -15,5 +16,10 @@ class Pengajuanup extends Model
     public function unit()
     {
          return $this->hasOne(Unit::class, 'kode', 'unit');
+    }
+
+    public function jabatan()
+    {
+         return $this->hasOne(Jabatan::class, 'kode', 'jabatan');
     }
 }

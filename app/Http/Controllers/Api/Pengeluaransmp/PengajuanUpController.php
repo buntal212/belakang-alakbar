@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Pengeluaransmp;
 
 use App\Helpers\Formating\FormatingHelper;
 use App\Http\Controllers\Controller;
+use App\Models\Master\Saldo;
 use App\Models\Pengeluaranyayasan\Pengajuanup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -40,11 +41,13 @@ class PengajuanUpController extends Controller
         $kode = $request->no_pengajuan ?? null;
         $validated = $request->validate([
             'tgl' => 'required',
-            'nilai_pengajuan' => 'required'
+            'nilai_pengajuan' => 'required',
+             'jabatan' => 'required'
         ], [
 
             'tgl.required' => 'Tanggal harus di isi',
             'nilai_pengajuan.required' => 'Nilai Pengajuan harus di isi',
+            'jabatan.required' => 'Jabatan harus di isi',
         ]);
 
         try {
@@ -67,6 +70,7 @@ class PengajuanUpController extends Controller
                         'tgl' => $validated['tgl'],
                         'unit' => 'U004',
                         'user' => $user->kode,
+                         'jabatan' => $validated['jabatan'],
                         'nilai_pengajuan' =>$validated['nilai_pengajuan']
                     ]
 
@@ -77,6 +81,78 @@ class PengajuanUpController extends Controller
                     'unit'
                 ])->
                 where('no_pengajuan', $kode)->get();
+                return new JsonResponse([
+                    'data' => $result,
+                    'message' => 'Data berhasil disimpan'
+                ]);
+
+        }catch (\Exception $e) {
+            DB::rollBack();
+                return new JsonResponse([
+                    'message' => 'Gagal menyimpan data: ' . $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => $e->getTrace(),
+
+                ], 410);
+        }
+    }
+
+    public function terimaUang(Request $request)
+    {
+        $validated = $request->validate([
+            'no_pengajuan' => 'required',
+            'nilai_pengajuan' => 'required',
+            'unitpengirim' => 'required',
+            'unitpenerima' => 'required',
+        ], [
+            'no_pengajuan.required' => 'No. Pengajuan Harus di isi',
+            'nilai_pengajuan.required' => 'Nilai Persetujuan Harus Diisi...!!!',
+            'unitpengirim.required' => 'Unit Pengirim Tidak Boleh Kosong...!!!',
+            'unitpenerima.required' => 'Unit Penerima Tidak Boleh Kosong...!!!',
+        ]);
+
+        try {
+            DB::beginTransaction();
+                $cek = Pengajuanup::where('no_pengajuan', $validated['no_pengajuan'])->where('flaging','!=','2')->count();
+                if($cek > 0){
+                    return new JsonResponse(['message' => 'UP ini Belum DiVerif!!!'],500);
+                }
+
+                $user = Auth::user();
+                $data = Pengajuanup::updateOrCreate(
+                    [
+                        'no_pengajuan' => $validated['no_pengajuan']
+                    ],[
+                        'tgl_terima' => date('Y-m-d'),
+                    ]
+
+                );
+              // pengirim
+                $pengirim = Saldo::where('pemilik', $validated['unitpengirim'])
+                    ->where('jenis', 'Bank')
+                    ->lockForUpdate()
+                    ->first();
+
+                $pengirim->nominal -= (int) $validated['nilai_pengajuan'];
+                $pengirim->save();
+
+                // penerima
+                $penerima = Saldo::where('pemilik', $validated['unitpenerima'])
+                    ->where('jenis', 'Bank')
+                    ->lockForUpdate()
+                    ->first();
+
+                $penerima->nominal += (int) $validated['nilai_pengajuan'];
+                $penerima->save();
+            DB::commit();
+                $result = Pengajuanup::with(
+                    [
+                        'unit',
+                        'jabatan'
+                    ]
+                )
+                ->where('no_pengajuan', $validated['no_pengajuan'])->get();
                 return new JsonResponse([
                     'data' => $result,
                     'message' => 'Data berhasil disimpan'
@@ -138,4 +214,5 @@ class PengajuanUpController extends Controller
                 ], 410);
         }
     }
+
 }

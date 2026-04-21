@@ -17,7 +17,8 @@ class PengajuanUpController extends Controller
     {
         $query = Pengajuanup::with(
             [
-                'unit'
+                'unit',
+                'jabatan'
             ]
         )->where('unit','U001')
         ->orderBy('created_at','desc');
@@ -66,6 +67,7 @@ class PengajuanUpController extends Controller
                     ],[
                         'tgl' => $validated['tgl'],
                         'unit' => 'U001',
+                        'jabatan' => 'J000004',
                         'user' => $user->kode,
                         'nilai_pengajuan' =>$validated['nilai_pengajuan']
                     ]
@@ -74,7 +76,8 @@ class PengajuanUpController extends Controller
             DB::commit();
                 $result = Pengajuanup::with(
                     [
-                        'unit'
+                        'unit',
+                        'jabatan'
                     ]
                 )
                 ->where('no_pengajuan', $kode)->get();
@@ -140,14 +143,18 @@ class PengajuanUpController extends Controller
         }
     }
 
-     public function terimaUang(Request $request)
+    public function terimaUang(Request $request)
     {
         $validated = $request->validate([
             'no_pengajuan' => 'required',
-            'nilai_persetujuan' => 'required'
+            'nilai_pengajuan' => 'required',
+            'unitpengirim' => 'required',
+            'unitpenerima' => 'required',
         ], [
-            'no_pengajuan' => 'No. Pengajuan Harus di isi',
-            'nilai_persetujuan' => 'Nilai Persetujuan Harus Diisi...'
+            'no_pengajuan.required' => 'No. Pengajuan Harus di isi',
+            'nilai_pengajuan.required' => 'Nilai Persetujuan Harus Diisi...!!!',
+            'unitpengirim.required' => 'Unit Pengirim Tidak Boleh Kosong...!!!',
+            'unitpenerima.required' => 'Unit Penerima Tidak Boleh Kosong...!!!',
         ]);
 
         try {
@@ -166,12 +173,28 @@ class PengajuanUpController extends Controller
                     ]
 
                 );
-                 $saldo = Saldo::where('pemilik', 'U000002')->first();
-                 $saldo->nominal = (int) $saldo->nominal + (int) $validated['nilai_persetujuan'];
+              // pengirim
+                $pengirim = Saldo::where('pemilik', $validated['unitpengirim'])
+                    ->where('jenis', 'Bank')
+                    ->lockForUpdate()
+                    ->first();
+
+                $pengirim->nominal -= (int) $validated['nilai_pengajuan'];
+                $pengirim->save();
+
+                // penerima
+                $penerima = Saldo::where('pemilik', $validated['unitpenerima'])
+                    ->where('jenis', 'Bank')
+                    ->lockForUpdate()
+                    ->first();
+
+                $penerima->nominal += (int) $validated['nilai_pengajuan'];
+                $penerima->save();
             DB::commit();
                 $result = Pengajuanup::with(
                     [
-                        'unit'
+                        'unit',
+                        'jabatan'
                     ]
                 )
                 ->where('no_pengajuan', $validated['no_pengajuan'])->get();

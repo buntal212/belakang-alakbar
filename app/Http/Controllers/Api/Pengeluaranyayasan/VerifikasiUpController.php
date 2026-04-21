@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api\Pengeluaranyayasan;
 
 use App\Http\Controllers\Controller;
+use App\Models\Master\Saldo;
 use App\Models\Pengeluaranyayasan\Pengajuanup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Nette\Utils\Json;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 class VerifikasiUpController extends Controller
@@ -37,15 +39,20 @@ class VerifikasiUpController extends Controller
     {
         $validated = $request->validate([
             'no_pengajuan' => 'required',
-            'nilai_persetujuan' => 'required'
+            'no_pengajuan' => 'required'
         ], [
 
             'no_pengajuan.required' => 'Tanggal harus di isi',
-            'nilai_persetujuan.required' => 'Nilai Persetujuan harus di isi'
+            'no_pengajuan.required' => 'Nilai Persetujuan harus di isi'
         ]);
 
         try {
             DB::beginTransaction();
+                $belumverif = Pengajuanup::where('flaging', '1')->where('jabatan','!=','J000004')->sum('nilai_pengajuan');
+                $saldo = Saldo::where('pemilik','J000004')->where('jenis','Bank')->first();
+                if($belumverif > $saldo->nominal){
+                    return new JsonResponse(['message' => 'Saldo Tidak Mencukupi'],500);
+                }
                 $user = Auth::user();
                 $data = Pengajuanup::updateOrCreate(
                     [
@@ -54,8 +61,8 @@ class VerifikasiUpController extends Controller
                         'flaging' => '2',
                         'tgl_flag' => date('Y-m-d'),
                         'unit_flag' => 'U002',
+                        'jabatan_flag' => 'J000004',
                         'user_flag' => $user->kode,
-                        'nilai_persetujuan' => $validated['nilai_persetujuan']
                     ]
 
                 );

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Penerimaanyayasan;
 
 use App\Http\Controllers\Controller;
+use App\Models\Master\Saldo;
 use App\Models\Pengeluaranyayasan\Pengajuanup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,7 +16,8 @@ class VerifikasiUpController extends Controller
     {
         $query = Pengajuanup::with(
             [
-                'unit'
+                'unit',
+                'jabatan'
             ]
         )->where('unit','U001')
         ->orderBy('created_at','desc');
@@ -37,15 +39,19 @@ class VerifikasiUpController extends Controller
     {
         $validated = $request->validate([
             'no_pengajuan' => 'required',
-            'nilai_persetujuan' => 'required'
+            'nilai_pengajuan' => 'required'
         ], [
 
             'no_pengajuan.required' => 'Tanggal harus di isi',
-            'nilai_persetujuan.required' => 'Nilai Persetujuan harus di isi',
+            'nilai_pengajuan.required' => 'Nilai Persetujuan harus di isi',
         ]);
 
         try {
             DB::beginTransaction();
+                $cek_saldo = Saldo::where('pemilik','J000003')->where('jenis', 'Bank')->first();
+                if($validated['nilai_pengajuan'] > $cek_saldo->nominal){
+                    return new JsonResponse(['message' => 'Saldo Tidak Mencukupi...!!!'],500);
+                }
                 $user = Auth::user();
                 $data = Pengajuanup::updateOrCreate(
                     [
@@ -54,15 +60,16 @@ class VerifikasiUpController extends Controller
                         'flaging' => '2',
                         'tgl_flag' => date('Y-m-d'),
                         'unit_flag' => 'U001',
+                        'jabatan_flag' => 'J000003',
                         'user_flag' => $user->kode,
-                        'nilai_persetujuan' =>$validated['nilai_persetujuan']
                     ]
 
                 );
             DB::commit();
                 $result = Pengajuanup::with(
                     [
-                        'unit'
+                        'unit',
+                        'jabatan'
                     ]
                 )
                 ->where('no_pengajuan', $validated['no_pengajuan'])->get();
