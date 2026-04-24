@@ -20,4 +20,10 @@ class FormatingHelper
         return $hasil . '/' . $kode. '-' . $entitas. '/'. $semester .'/'.  date("Y");
     }
 
+     public static function pergeserankas($n,$entitas)
+    {
+        $semester= 01;
+        $hasil = str_pad($n, 6, '0', STR_PAD_LEFT);
+        return $hasil . '/PK-'. $entitas. '/'. $semester .'/'.  date("Y");
+    }
 }
