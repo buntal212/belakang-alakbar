@@ -29,6 +29,16 @@ class SatuanController extends Controller
         return new JsonResponse($data);
     }
 
+    public function indexall()
+    {
+        $query = Satuan::where(function ($q) {
+            $q->where('flaging', '<>', '1')
+            ->orWhereNull('flaging');
+        })->orderBy('satuan')->get();
+
+        return new JsonResponse($query);
+    }
+
     public function store(Request $request)
     {
         $id = $request->id ?? null;

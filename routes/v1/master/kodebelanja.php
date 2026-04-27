@@ -8,6 +8,7 @@ Route::group([
     'prefix' => 'master/kodebelanja'
 ], function () {
     Route::get('/getkodebelanja', [KodebelanjaController::class, 'index']);
+    Route::get('/getkodebelanjaall', [KodebelanjaController::class, 'indexall']);
     Route::post('/simpan', [KodebelanjaController::class, 'store']);
-     Route::post('/delete', [KodebelanjaController::class, 'destroy']);
+    Route::post('/delete', [KodebelanjaController::class, 'destroy']);
 });

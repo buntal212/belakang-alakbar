@@ -30,6 +30,16 @@ class KodebelanjaController extends Controller
         return new JsonResponse($data);
     }
 
+    public function indexall()
+    {
+        $query = Kodebelanja::where(function ($q) {
+            $q->where('flaging', '<>', '1')
+            ->orWhereNull('flaging');
+        })->orderBy('kode')->get();
+
+        return new JsonResponse($query);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([

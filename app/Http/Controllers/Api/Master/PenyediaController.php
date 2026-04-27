@@ -29,12 +29,12 @@ class PenyediaController extends Controller
             ->orWhereNull('flaging');
         })->orderBy('kode');
 
-        if (request('search')) {
-            $search = request('search');
+        $search = request('search');
 
+        if ($search !== null && $search !== '') {
             $query->where(function ($q) use ($search) {
-                $q->where('kode', 'like', "%$search%")
-                ->orWhere('kegiatan', 'like', "%$search%");
+                $q->where('kode', 'like', '%' . $search . '%')
+                ->orWhere('nama', 'like', '%' . $search . '%');
             });
         }
 

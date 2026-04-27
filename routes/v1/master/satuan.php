@@ -8,6 +8,7 @@ Route::group([
     'prefix' => 'master/satuan'
 ], function () {
     Route::get('/getsatuan', [SatuanController::class, 'index']);
+    Route::get('/getsatuanall', [SatuanController::class, 'indexall']);
     Route::post('/simpan', [SatuanController::class, 'store']);
     Route::post('/delete', [SatuanController::class, 'destroy']);
 });
