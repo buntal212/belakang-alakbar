@@ -125,18 +125,23 @@ class TagihanController extends Controller
             'notrans' => 'required',
             'akun' => 'required',
             'rincian' => 'required',
-            'qty' => 'required',
-            'harga' => 'required',
+            'qty' => 'required|numeric|gt:0',
+            'harga' => 'required|numeric|gt:0',
             'satuan' => 'required',
-            'jumlah' => 'required',
+            'jumlah' => 'required|numeric|gt:0',
         ], [
             'notrans.required' => 'Notrans Harus di isi',
             'akun.required' => 'Akun Harus Diisi...!!!',
             'rincian.required' => 'Rincian Tidak Boleh Kosong...!!!',
             'qty.required' => 'Kuantitas Tidak Boleh Kosong...!!!',
+            'qty.numeric' => 'Kuantitas harus angka',
+            'qty.gt' => 'Kuantitas harus lebih dari 0 ❌',
             'harga.required' => 'Harga Tidak Boleh Kosong...!!!',
+            'harga.numeric' => 'Harga harus angka',
+            'harga.gt' => 'Harga harus lebih dari 0 ❌',
             'satuan.required' => 'Satuan Tidak Boleh Kosong...!!!',
             'jumlah.required' => 'Jumlah Tidak Boleh Kosong...!!!',
+            'jumlah.gt' => 'Jumlah harus lebih dari 0 ❌',
         ]);
         try{
             DB::beginTransaction();
