@@ -271,38 +271,40 @@ class TagihanController extends Controller
     // }
 
    public function gettotalbelanja($notrans)
-    {
-        // ambil header
+   {
         $header = Tagihanbelanjaheder::where('notagihan', $notrans)->first();
 
         if (!$header) {
-            throw new \Exception('Data tagihan tidak ditemukan');
+            return response()->json([
+                'success' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
         }
 
-        // hitung total rincian
         $total = TagihanbelanjaRinci::where('notagihan', $notrans)->sum('jumlah');
 
-        // ambil diskon & pajak
         $diskon = $header->diskon ?? 0;
         $pajak  = $header->pajak ?? 0;
 
-        // 🔥 VALIDASI: diskon tidak boleh lebih besar dari total
-        if ($diskon > $total) {
-            throw new \Exception('Diskon tidak boleh melebihi total belanja');
-        }
+        $jumlahditagihkan_raw = $total - $diskon + $pajak;
 
-        // hitung jumlah ditagihkan
-        $jumlahditagihkan = $total - $diskon + $pajak;
+        // 🔥 guard
+        $isAdjusted = $jumlahditagihkan_raw < 0;
 
-        // 🔥 GUARD: tidak boleh minus (double safety)
-        $jumlahditagihkan = max(0, $jumlahditagihkan);
+        $jumlahditagihkan = max(0, $jumlahditagihkan_raw);
 
-        // update ke database
         $header->update([
             'jumlahbelanja' => $total,
             'jumlahditagihkan' => $jumlahditagihkan
         ]);
 
-        return $header;
+        return response()->json([
+            'success' => true,
+            'data' => $header,
+            'adjusted' => $isAdjusted, // 🔥 info penting
+            'message' => $isAdjusted
+                ? 'Total tidak boleh minus, otomatis disesuaikan ke 0'
+                : 'Total berhasil dihitung'
+        ]);
     }
 }
