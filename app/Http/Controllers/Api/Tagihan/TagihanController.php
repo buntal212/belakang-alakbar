@@ -83,6 +83,11 @@ class TagihanController extends Controller
                     }
                 }
                 $user = Auth::user();
+                if($validated['diskon'] > $validated['totalmentah']){
+                    return new JsonResponse([
+                        'message' => 'Diskon Tidak Boleh Lebih besar Dari Total Belanja'
+                    ],500);
+                }
                 $simpan = Tagihanbelanjaheder::updateOrCreate(
                     [
                         'notagihan' => $notrans
