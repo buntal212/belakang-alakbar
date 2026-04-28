@@ -64,22 +64,22 @@ class TagihanController extends Controller
                         DB::select('call tagihanpengeluaranyayasan(@nomor)');
                         $nomor = DB::table('counter')->select('tagihanpengeluaranyayasan')->first();
                         $flag = 'PK';
-                        $notrans = FormatingHelper::pergeserankas($nomor->tagihanpengeluaranyayasan, $flag);
+                        $notrans = FormatingHelper::tagihan($nomor->tagihanpengeluaranyayasan, $flag);
                     }else if($validated['jabatan'] == 'J000005'){
-                        DB::select('call pergeserankaspengeluarantk(@nomor)');
-                        $nomor = DB::table('counter')->select('pergeserankaspengeluarantk')->first();
+                        DB::select('call tagihanpengeluarantk(@nomor)');
+                        $nomor = DB::table('counter')->select('tagihanpengeluarantk')->first();
                         $flag = 'TK';
-                        $notrans = FormatingHelper::pergeserankas($nomor->pergeserankaspengeluarantk, $flag);
+                        $notrans = FormatingHelper::tagihan($nomor->tagihanpengeluarantk, $flag);
                     }else if($validated['jabatan'] == 'J000006'){
-                        DB::select('call pergeserankaspengeluaransd(@nomor)');
-                        $nomor = DB::table('counter')->select('pergeserankaspengeluaransd')->first();
+                        DB::select('call tagihanpengeluaransd(@nomor)');
+                        $nomor = DB::table('counter')->select('tagihanpengeluaransd')->first();
                         $flag = 'SD';
-                        $notrans = FormatingHelper::pergeserankas($nomor->pergeserankaspengeluaransd, $flag);
+                        $notrans = FormatingHelper::tagihan($nomor->tagihanpengeluaransd, $flag);
                     }else{
-                        DB::select('call pergeserankaspengeluaransmp(@nomor)');
-                        $nomor = DB::table('counter')->select('pergeserankaspengeluaransmp')->first();
+                        DB::select('call tagihanpengeluaransmp(@nomor)');
+                        $nomor = DB::table('counter')->select('tagihanpengeluaransmp')->first();
                         $flag = 'SMP';
-                        $notrans = FormatingHelper::pergeserankas($nomor->pergeserankaspengeluaransmp, $flag);
+                        $notrans = FormatingHelper::tagihan($nomor->tagihanpengeluaransmp, $flag);
                     }
                 }
                 $user = Auth::user();
