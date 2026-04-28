@@ -83,11 +83,11 @@ class TagihanController extends Controller
                     }
                 }
                 $user = Auth::user();
-                if($validated['diskon'] > $validated['totalmentah']){
-                    return new JsonResponse([
-                        'message' => 'Diskon Tidak Boleh Lebih besar Dari Total Belanja'
-                    ],500);
-                }
+                // if($validated['diskon'] > $validated['totalmentah']){
+                //     return new JsonResponse([
+                //         'message' => 'Diskon Tidak Boleh Lebih besar Dari Total Belanja'
+                //     ],500);
+                // }
                 $simpan = Tagihanbelanjaheder::updateOrCreate(
                     [
                         'notagihan' => $notrans
@@ -256,15 +256,51 @@ class TagihanController extends Controller
         return $data;
     }
 
-    public function gettotalbelanja($notrans)
+    // public function gettotalbelanja($notrans)
+    // {
+    //     $header = Tagihanbelanjaheder::where('notagihan', $notrans)->first();
+
+    //     $total = TagihanbelanjaRinci::where('notagihan', $notrans)->sum('jumlah');
+
+    //     $header->update([
+    //         'jumlahbelanja' => $total,
+    //         'jumlahditagihkan' => $total - ($header->diskon ?? 0) + ($header->pajak ?? 0)
+    //     ]);
+
+    //     return $header;
+    // }
+
+   public function gettotalbelanja($notrans)
     {
+        // ambil header
         $header = Tagihanbelanjaheder::where('notagihan', $notrans)->first();
 
+        if (!$header) {
+            throw new \Exception('Data tagihan tidak ditemukan');
+        }
+
+        // hitung total rincian
         $total = TagihanbelanjaRinci::where('notagihan', $notrans)->sum('jumlah');
 
+        // ambil diskon & pajak
+        $diskon = $header->diskon ?? 0;
+        $pajak  = $header->pajak ?? 0;
+
+        // 🔥 VALIDASI: diskon tidak boleh lebih besar dari total
+        if ($diskon > $total) {
+            throw new \Exception('Diskon tidak boleh melebihi total belanja');
+        }
+
+        // hitung jumlah ditagihkan
+        $jumlahditagihkan = $total - $diskon + $pajak;
+
+        // 🔥 GUARD: tidak boleh minus (double safety)
+        $jumlahditagihkan = max(0, $jumlahditagihkan);
+
+        // update ke database
         $header->update([
             'jumlahbelanja' => $total,
-            'jumlahditagihkan' => $total - ($header->diskon ?? 0) + ($header->pajak ?? 0)
+            'jumlahditagihkan' => $jumlahditagihkan
         ]);
 
         return $header;
