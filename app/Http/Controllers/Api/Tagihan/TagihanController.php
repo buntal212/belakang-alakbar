@@ -99,6 +99,7 @@ class TagihanController extends Controller
                         'user' => $user->kode,
                     ]
                 );
+                self::gettotalbelanja($notrans);
             DB::commit();
                 $data = self::getnotrans($notrans);
                 return new JsonResponse(
@@ -154,14 +155,15 @@ class TagihanController extends Controller
                     ]
                 );
 
-                $header = Tagihanbelanjaheder::where('notagihan', $validated['notrans'])->first();
+                // $header = Tagihanbelanjaheder::where('notagihan', $validated['notrans'])->first();
 
-                $total = TagihanbelanjaRinci::where('notagihan', $validated['notrans'])->sum('jumlah');
+                // $total = TagihanbelanjaRinci::where('notagihan', $validated['notrans'])->sum('jumlah');
 
-                $header->update([
-                    'jumlahbelanja' => $total,
-                    'jumlahditagihkan' => $total - ($header->diskon ?? 0) + ($header->pajak ?? 0)
-                ]);
+                // $header->update([
+                //     'jumlahbelanja' => $total,
+                //     'jumlahditagihkan' => $total - ($header->diskon ?? 0) + ($header->pajak ?? 0)
+                // ]);
+                self::gettotalbelanja($validated['notrans']);
             DB::commit();
                 $data = self::getnotrans($validated['notrans']);
                 return new JsonResponse(
@@ -203,15 +205,15 @@ class TagihanController extends Controller
 
             $rincian->delete();
 
-            $header = Tagihanbelanjaheder::where('notagihan', $validated['notagihan'])->first();
+            // $header = Tagihanbelanjaheder::where('notagihan', $validated['notagihan'])->first();
 
-            $total = TagihanbelanjaRinci::where('notagihan', $validated['notagihan'])->sum('jumlah');
+            // $total = TagihanbelanjaRinci::where('notagihan', $validated['notagihan'])->sum('jumlah');
 
-            $header->update([
-                'jumlahbelanja' => $total,
-                'jumlahditagihkan' => $total - ($header->diskon ?? 0) + ($header->pajak ?? 0)
-            ]);
-
+            // $header->update([
+            //     'jumlahbelanja' => $total,
+            //     'jumlahditagihkan' => $total - ($header->diskon ?? 0) + ($header->pajak ?? 0)
+            // ]);
+            self::gettotalbelanja($validated['notagihan']);
             DB::commit();
                 $data = self::getnotrans($validated['notagihan']);
                 return response()->json([
@@ -242,5 +244,19 @@ class TagihanController extends Controller
         )
         ->where('notagihan', $notrans)->get();
         return $data;
+    }
+
+    public function gettotalbelanja($notrans)
+    {
+        $header = Tagihanbelanjaheder::where('notagihan', $notrans)->first();
+
+        $total = TagihanbelanjaRinci::where('notagihan', $notrans)->sum('jumlah');
+
+        $header->update([
+            'jumlahbelanja' => $total,
+            'jumlahditagihkan' => $total - ($header->diskon ?? 0) + ($header->pajak ?? 0)
+        ]);
+
+        return $header;
     }
 }
