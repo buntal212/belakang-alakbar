@@ -182,6 +182,52 @@ class TagihanController extends Controller
         }
     }
 
+    public function hapusrinci(Request $request)
+    {
+        DB::beginTransaction();
+
+        try {
+            $validated = $request->validate([
+                'id' => 'required',
+                'notagihan' => 'required'
+            ], [
+                'id.required' => 'Data ini Tidak Bisa Dihapus,Karena tidak mempunyai ID',
+                'notagihan.required' => 'No. Tagihan Harus di isi',
+            ]);
+
+            $rincian = TagihanbelanjaRinci::find($request->id);
+
+            if (!$rincian) {
+                throw new \Exception('Data tidak ditemukan');
+            }
+
+            $rincian->delete();
+
+            $header = Tagihanbelanjaheder::where('notagihan', $validated['notagihan'])->first();
+
+            $total = TagihanbelanjaRinci::where('notagihan', $validated['notagihan'])->sum('jumlah');
+
+            $header->update([
+                'jumlahbelanja' => $total,
+                'jumlahditagihkan' => $total - ($header->diskon ?? 0) + ($header->pajak ?? 0)
+            ]);
+
+            DB::commit();
+                $data = self::getnotrans($validated['notagihan']);
+                return response()->json([
+                    'data' => $data,
+                    'message' => 'Data berhasil dihapus'
+                ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Gagal hapus data',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function getnotrans($notrans)
     {
         $data = Tagihanbelanjaheder::with(
