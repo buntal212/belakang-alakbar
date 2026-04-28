@@ -233,10 +233,13 @@ class TagihanController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return response()->json([
-                'message' => 'Gagal hapus data',
-                'error' => $e->getMessage()
-            ], 500);
+            return new JsonResponse([
+                    'message' => 'Gagal menyimpan data: ' . $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => $e->getTrace(),
+
+            ], 410);
         }
     }
 
@@ -271,40 +274,42 @@ class TagihanController extends Controller
     // }
 
    public function gettotalbelanja($notrans)
-   {
+    {
+        // ambil header
         $header = Tagihanbelanjaheder::where('notagihan', $notrans)->first();
 
         if (!$header) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Data tidak ditemukan'
-            ], 404);
+            throw new \Exception('Data tagihan tidak ditemukan');
         }
 
+        // hitung total rincian
         $total = TagihanbelanjaRinci::where('notagihan', $notrans)->sum('jumlah');
 
+        // ambil diskon & pajak
         $diskon = $header->diskon ?? 0;
         $pajak  = $header->pajak ?? 0;
 
-        $jumlahditagihkan_raw = $total - $diskon + $pajak;
+        // 🔥 VALIDASI: diskon tidak boleh lebih besar dari total
+        if ($diskon > $total) {
+            throw new \Exception('Diskon tidak boleh melebihi total belanja');
+        }
 
-        // 🔥 guard
-        $isAdjusted = $jumlahditagihkan_raw < 0;
+        // hitung jumlah ditagihkan
+        $jumlahditagihkan = $total - $diskon + $pajak;
 
-        $jumlahditagihkan = max(0, $jumlahditagihkan_raw);
+        if ($jumlahditagihkan < 0) {
+            throw new \Exception('Total Tidak Boleh Kurang Dari 0');
+        }
 
+        // 🔥 GUARD: tidak boleh minus (double safety)
+        $jumlahditagihkan = max(0, $jumlahditagihkan);
+
+        // update ke database
         $header->update([
             'jumlahbelanja' => $total,
             'jumlahditagihkan' => $jumlahditagihkan
         ]);
 
-        return response()->json([
-            'success' => true,
-            'data' => $header,
-            'adjusted' => $isAdjusted, // 🔥 info penting
-            'message' => $isAdjusted
-                ? 'Total tidak boleh minus, otomatis disesuaikan ke 0'
-                : 'Total berhasil dihitung'
-        ]);
+        return $header;
     }
 }
