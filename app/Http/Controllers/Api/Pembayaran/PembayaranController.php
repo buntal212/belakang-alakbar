@@ -93,20 +93,20 @@ class PembayaranController extends Controller
                         $flag = 'PK';
                         $notrans = FormatingHelper::pembayaran($nomor->pembayaranpengeluaranyayasan, $flag);
                     }else if($validated['jabatan'] == 'J000005'){
-                        DB::select('call tagihanpengeluarantk(@nomor)');
-                        $nomor = DB::table('counter')->select('tagihanpengeluarantk')->first();
+                        DB::select('call pembayaranpengeluarantk(@nomor)');
+                        $nomor = DB::table('counter')->select('pembayaranpengeluarantk')->first();
                         $flag = 'TK';
-                        $notrans = FormatingHelper::pembayaran($nomor->tagihanpengeluarantk, $flag);
+                        $notrans = FormatingHelper::pembayaran($nomor->pembayaranpengeluarantk, $flag);
                     }else if($validated['jabatan'] == 'J000006'){
-                        DB::select('call tagihanpengeluaransd(@nomor)');
-                        $nomor = DB::table('counter')->select('tagihanpengeluaransd')->first();
+                        DB::select('call pembayaranpengeluaransd(@nomor)');
+                        $nomor = DB::table('counter')->select('pembayaranpengeluaransd')->first();
                         $flag = 'SD';
-                        $notrans = FormatingHelper::pembayaran($nomor->tagihanpengeluaransd, $flag);
+                        $notrans = FormatingHelper::pembayaran($nomor->pembayaranpengeluaransd, $flag);
                     }else{
-                        DB::select('call tagihanpengeluaransmp(@nomor)');
-                        $nomor = DB::table('counter')->select('tagihanpengeluaransmp')->first();
+                        DB::select('call pembayaranpengeluaransmp(@nomor)');
+                        $nomor = DB::table('counter')->select('pembayaranpengeluaransmp')->first();
                         $flag = 'SMP';
-                        $notrans = FormatingHelper::pembayaran($nomor->tagihanpengeluaransmp, $flag);
+                        $notrans = FormatingHelper::pembayaran($nomor->pembayaranpengeluaransmp, $flag);
                     }
                 }
                 $user = Auth::user();
