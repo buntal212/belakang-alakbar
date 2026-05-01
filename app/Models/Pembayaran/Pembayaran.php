@@ -1,18 +1,18 @@
 <?php
 
-namespace App\Models\Tagihan;
+namespace App\Models\Pembayaran;
 
 use App\Models\Master\Jabatan;
 use App\Models\Master\Penyedia;
 use App\Models\Master\Unit;
-use App\Models\Pembayaran\Pembayaran;
+use App\Models\Tagihan\TagihanbelanjaRinci;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Tagihanbelanjaheder extends Model
+class Pembayaran extends Model
 {
     use HasFactory;
-    protected $table = 'tagihan_h';
+    protected $table = 'pembayaran';
     protected $guarded = ['id'];
 
     public function rinci()
@@ -25,17 +25,13 @@ class Tagihanbelanjaheder extends Model
          return $this->hasOne(Penyedia::class, 'kode', 'penyedia');
     }
 
-    public function unit()
-    {
-         return $this->hasOne(Unit::class, 'kode', 'unit');
-    }
-
     public function jabatan()
     {
          return $this->hasOne(Jabatan::class, 'kode', 'jabatan');
     }
-    public function pembayaran()
+
+     public function unit()
     {
-         return $this->hasOne(Pembayaran::class, 'notagihan', 'notagihan');
+         return $this->hasOne(Unit::class, 'kode', 'unit');
     }
 }

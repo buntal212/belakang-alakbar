@@ -33,4 +33,11 @@ class FormatingHelper
         $hasil = str_pad($n, 6, '0', STR_PAD_LEFT);
         return $hasil . '/TG-'. $entitas. '/'. $semester .'/'.  date("Y");
     }
+
+    public static function pembayaran($n,$entitas)
+    {
+        $semester= 01;
+        $hasil = str_pad($n, 6, '0', STR_PAD_LEFT);
+        return $hasil . '/PB-'. $entitas. '/'. $semester .'/'.  date("Y");
+    }
 }

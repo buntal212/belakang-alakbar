@@ -312,4 +312,34 @@ class TagihanController extends Controller
 
         return $header;
     }
+
+    public function indexall()
+    {
+        $jabatan = request('jabatan');
+
+        $data = Tagihanbelanjaheder::query()
+            ->with([
+                'rinci' => function ($q) {
+                    $q->with('akun:kode,belanja');
+                },
+                'penyedia:kode,nama',
+                'unit:kode,nama_unit',
+                'jabatan:kode,jabatan'
+            ])
+            ->withSum('pembayaran as total_terbayar', 'nominal')
+            ->where('jabatan', $jabatan)
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($item) {
+                $total = $item->total_terbayar ?? 0;
+                $item->sisa_bayar = $item->jumlahditagihkan - $total;
+                return $item;
+            })
+            ->filter(function ($item) {
+                return $item->sisa_bayar > 0;
+            })
+            ->values();
+
+        return new JsonResponse($data);
+    }
 }
