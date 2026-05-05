@@ -38,7 +38,7 @@ COPY . .
 # Set correct permissions
 RUN chown -R ${user}:${user} /var/www
 
-USER ${user}
+# USER ${user}
 
 # Expose PHP-FPM default port
 EXPOSE 9000

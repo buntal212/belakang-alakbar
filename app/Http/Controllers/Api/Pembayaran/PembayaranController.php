@@ -47,10 +47,10 @@ class PembayaranController extends Controller
             ->when($search, function ($q) use ($search) {
                 $q->where(function ($q2) use ($search) {
                     $q2->where('pembayaran.nopembayaran', 'like', "%$search%")
-                    ->orWhere('pembayaran.notagihan', 'like', "%$search%")
-                    ->orWhereHas('penyedia', function ($q3) use ($search) {
-                        $q3->where('nama', 'like', "%$search%");
-                    });
+                        ->orWhere('pembayaran.notagihan', 'like', "%$search%")
+                        ->orWhereHas('penyedia', function ($q3) use ($search) {
+                            $q3->where('nama', 'like', "%$search%");
+                        });
                 });
             })
 
@@ -59,6 +59,40 @@ class PembayaranController extends Controller
         $data = $query->simplePaginate(request('per_page', 10));
 
         return new JsonResponse($data);
+    }
+
+    public function indexall()
+    {
+        $jabatan = request('jabatan');
+
+        $query = Pembayaran::query()
+            ->leftJoin('tagihan_h as t', 't.notagihan', '=', 'pembayaran.notagihan')
+            ->leftJoin('gu_r as g', 'g.nospj', '=', 'pembayaran.nopembayaran')
+            ->with([
+                'rinci.akun',
+                'penyedia',
+                'unit',
+                'jabatan'
+            ])
+            ->select(
+                'pembayaran.*',
+                't.id as tagihan_id',
+                't.tgl as tgl_tagihan',
+                't.kegiatan as kegiatan_tagihan',
+                't.penyedia as kode_penyedia',
+                't.unit as kode_unit',
+                't.jabatan as kode_jabatan',
+                't.jumlahbelanja as total_belanja',
+                't.diskon as total_diskon',
+                't.pajak as total_pajak',
+                't.jumlahditagihkan as total_tagihan',
+            )
+            ->where('pembayaran.flag', '1')->where('pembayaran.jabatan', $jabatan)
+            ->whereNull('g.nogu')
+            ->orderBy('pembayaran.created_at', 'desc')
+            ->get();
+
+        return new JsonResponse($query);
     }
 
     public function simpan(Request $request)
@@ -84,89 +118,91 @@ class PembayaranController extends Controller
             'jumlahpembayaran.required' => 'Jumlah Pembayaran Tidak Boleh Kosong...!!!',
         ]);
 
-        try{
+        try {
             DB::beginTransaction();
-                if(!$notrans){
-                    if($validated['jabatan'] == 'J000004'){
-                        DB::select('call pembayaranpengeluaranyayasan(@nomor)');
-                        $nomor = DB::table('counter')->select('pembayaranpengeluaranyayasan')->first();
-                        $flag = 'PK';
-                        $notrans = FormatingHelper::pembayaran($nomor->pembayaranpengeluaranyayasan, $flag);
-                    }else if($validated['jabatan'] == 'J000005'){
-                        DB::select('call pembayaranpengeluarantk(@nomor)');
-                        $nomor = DB::table('counter')->select('pembayaranpengeluarantk')->first();
-                        $flag = 'TK';
-                        $notrans = FormatingHelper::pembayaran($nomor->pembayaranpengeluarantk, $flag);
-                    }else if($validated['jabatan'] == 'J000006'){
-                        DB::select('call pembayaranpengeluaransd(@nomor)');
-                        $nomor = DB::table('counter')->select('pembayaranpengeluaransd')->first();
-                        $flag = 'SD';
-                        $notrans = FormatingHelper::pembayaran($nomor->pembayaranpengeluaransd, $flag);
-                    }else{
-                        DB::select('call pembayaranpengeluaransmp(@nomor)');
-                        $nomor = DB::table('counter')->select('pembayaranpengeluaransmp')->first();
-                        $flag = 'SMP';
-                        $notrans = FormatingHelper::pembayaran($nomor->pembayaranpengeluaransmp, $flag);
-                    }
+            if (!$notrans) {
+                if ($validated['jabatan'] == 'J000004') {
+                    DB::select('call pembayaranpengeluaranyayasan(@nomor)');
+                    $nomor = DB::table('counter')->select('pembayaranpengeluaranyayasan')->first();
+                    $flag = 'PK';
+                    $notrans = FormatingHelper::pembayaran($nomor->pembayaranpengeluaranyayasan, $flag);
+                } else if ($validated['jabatan'] == 'J000005') {
+                    DB::select('call pembayaranpengeluarantk(@nomor)');
+                    $nomor = DB::table('counter')->select('pembayaranpengeluarantk')->first();
+                    $flag = 'TK';
+                    $notrans = FormatingHelper::pembayaran($nomor->pembayaranpengeluarantk, $flag);
+                } else if ($validated['jabatan'] == 'J000006') {
+                    DB::select('call pembayaranpengeluaransd(@nomor)');
+                    $nomor = DB::table('counter')->select('pembayaranpengeluaransd')->first();
+                    $flag = 'SD';
+                    $notrans = FormatingHelper::pembayaran($nomor->pembayaranpengeluaransd, $flag);
+                } else {
+                    DB::select('call pembayaranpengeluaransmp(@nomor)');
+                    $nomor = DB::table('counter')->select('pembayaranpengeluaransmp')->first();
+                    $flag = 'SMP';
+                    $notrans = FormatingHelper::pembayaran($nomor->pembayaranpengeluaransmp, $flag);
                 }
-                $user = Auth::user();
-                if($validated['jumlahpembayaran'] > $validated['saldo']){
-                    return new JsonResponse([
-                        'message' => 'Saldo Anda Tidak Mencukupi...!!!'
-                    ],500);
-                }
-
-                 if($validated['jumlahpembayaran'] > $validated['sisapembayaran']){
-                    return new JsonResponse([
-                        'message' => 'Pembayaran Terlalu Banyak...!!!'
-                    ],500);
-                }
-                $simpan = Pembayaran::updateOrCreate(
-                    [
-                        'nopembayaran' => $notrans
-                    ],[
-                        'tgl' => date('Y-m-d'),
-                        'notagihan' => $validated['notagihan'],
-                        'unit' => $validated['unit'],
-                        'jabatan' => $validated['jabatan'],
-                        'jenispembayaran' => $validated['jenispembayaran'],
-                        'penyedia' => $validated['penyedia'],
-                        'saldo' => $validated['saldo'],
-                        'sisapembayaran' => $validated['sisapembayaran'],
-                        'nominal' => $validated['jumlahpembayaran'],
-                        'user' => $user->kode,
-                    ]
-                );
-                $saldo = SaldoController::saldo($validated['jabatan'],$validated['jenispembayaran'],$validated['jumlahpembayaran']);
-            DB::commit();
-                $data = self::getnotrans($notrans);
-                return new JsonResponse(
-                    [
-                        'data' => $data,
-                        'saldo' => $saldo,
-                        'message' => 'Data berhasil disimpan'
-                    ]);
-        }catch(\Exception $e) {
-            DB::rollBack();
+            }
+            $user = Auth::user();
+            if ($validated['jumlahpembayaran'] > $validated['saldo']) {
                 return new JsonResponse([
-                    'message' => 'Gagal menyimpan data: ' . $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'trace' => $e->getTrace(),
+                    'message' => 'Saldo Anda Tidak Mencukupi...!!!'
+                ], 500);
+            }
 
-                ], 410);
+            if ($validated['jumlahpembayaran'] > $validated['sisapembayaran']) {
+                return new JsonResponse([
+                    'message' => 'Pembayaran Terlalu Banyak...!!!'
+                ], 500);
+            }
+            $simpan = Pembayaran::updateOrCreate(
+                [
+                    'nopembayaran' => $notrans
+                ],
+                [
+                    'tgl' => date('Y-m-d'),
+                    'notagihan' => $validated['notagihan'],
+                    'unit' => $validated['unit'],
+                    'jabatan' => $validated['jabatan'],
+                    'jenispembayaran' => $validated['jenispembayaran'],
+                    'penyedia' => $validated['penyedia'],
+                    'saldo' => $validated['saldo'],
+                    'sisapembayaran' => $validated['sisapembayaran'],
+                    'nominal' => $validated['jumlahpembayaran'],
+                    'user' => $user->kode,
+                ]
+            );
+            $saldo = SaldoController::saldo($validated['jabatan'], $validated['jenispembayaran'], $validated['jumlahpembayaran']);
+            DB::commit();
+            $data = self::getnotrans($notrans);
+            return new JsonResponse(
+                [
+                    'data' => $data,
+                    'saldo' => $saldo,
+                    'message' => 'Data berhasil disimpan'
+                ]
+            );
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return new JsonResponse([
+                'message' => 'Gagal menyimpan data: ' . $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTrace(),
+
+            ], 410);
         }
     }
 
     public function hapus(Request $request)
     {
         $validated = $request->validate([
-                'id' => 'required',
-                'nopembayaran' => 'required'
-            ], [
-                'id.required' => 'Data ini Tidak Bisa Dihapus,Karena tidak mempunyai ID',
-                'nopembayaran.required' => 'No. Tagihan Harus di isi',
-            ]);
+            'id' => 'required',
+            'nopembayaran' => 'required'
+        ], [
+            'id.required' => 'Data ini Tidak Bisa Dihapus,Karena tidak mempunyai ID',
+            'nopembayaran.required' => 'No. Tagihan Harus di isi',
+        ]);
 
         try {
             DB::beginTransaction();
@@ -186,7 +222,7 @@ class PembayaranController extends Controller
             // 🔥 delete utama
             $data->delete();
             self::getnotrans($validated['nopembayaran']);
-            $saldo = SaldoController::saldokembali($data->jabatan,$data->jenispembayaran,$data->nominal);
+            $saldo = SaldoController::saldokembali($data->jabatan, $data->jenispembayaran, $data->nominal);
             DB::commit();
 
             return response()->json([
@@ -194,7 +230,6 @@ class PembayaranController extends Controller
                 'saldo' => $saldo,
                 'message' => 'Data berhasil dihapus',
             ]);
-
         } catch (\Throwable $e) {
             DB::rollBack();
 
@@ -208,33 +243,32 @@ class PembayaranController extends Controller
     public function getnotrans($notrans)
     {
         $data = Pembayaran::query()
-        ->leftJoin('tagihan_h as t', 't.notagihan', '=', 'pembayaran.notagihan')
-        ->with([
-            'rinci' => function ($q) {
-                $q->with(['akun']);
-            },
-            'penyedia',
-            'unit',
-            'jabatan'
-        ])
-        ->where('pembayaran.nopembayaran', $notrans)
-        ->select(
-            'pembayaran.*',
-            't.id as tagihan_id',
-            't.tgl as tgl_tagihan',
-            't.kegiatan as kegiatan_tagihan',
-            't.penyedia as kode_penyedia',
-            't.unit as kode_unit',
-            't.jabatan as kode_jabatan',
-            't.jumlahbelanja as total_belanja',
-            't.diskon as total_diskon',
-            't.pajak as total_pajak',
-            't.jumlahditagihkan as total_tagihan',
-        )
-        ->orderBy('pembayaran.created_at', 'desc')
-        ->get();
+            ->leftJoin('tagihan_h as t', 't.notagihan', '=', 'pembayaran.notagihan')
+            ->with([
+                'rinci' => function ($q) {
+                    $q->with(['akun']);
+                },
+                'penyedia',
+                'unit',
+                'jabatan'
+            ])
+            ->where('pembayaran.nopembayaran', $notrans)
+            ->select(
+                'pembayaran.*',
+                't.id as tagihan_id',
+                't.tgl as tgl_tagihan',
+                't.kegiatan as kegiatan_tagihan',
+                't.penyedia as kode_penyedia',
+                't.unit as kode_unit',
+                't.jabatan as kode_jabatan',
+                't.jumlahbelanja as total_belanja',
+                't.diskon as total_diskon',
+                't.pajak as total_pajak',
+                't.jumlahditagihkan as total_tagihan',
+            )
+            ->orderBy('pembayaran.created_at', 'desc')
+            ->get();
 
         return $data;
     }
-
 }
