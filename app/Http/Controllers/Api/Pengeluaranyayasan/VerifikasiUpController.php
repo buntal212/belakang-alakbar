@@ -15,35 +15,62 @@ class VerifikasiUpController extends Controller
 {
     public function index()
     {
-        $query = Pengajuanup::with(
-            [
-                'unit'
-            ]
-        )->where('unit','!=','U001')
-        ->orderBy('created_at','desc');
+        $query = Pengajuanup::with([
+            'unit',
+            'jabatan'
+        ])
+        ->where('unit','!=','U001')
+        ->orderBy('created_at', 'desc');
 
-        // if (request('search')) {
-        //     $search = request('search');
+        // 🔥 FILTER SEARCH
+        if (request('search')) {
 
-        //     $query->where(function ($q) use ($search) {
-        //         $q->where('username', 'like', "%$search%")
-        //         ->orWhere('name', 'like', "%$search%");
-        //     });
-        // }
+            $search = request('search');
 
-        $data = $query->simplePaginate(request('per_page', 10));
-        return new JsonResponse($data);
+            $query->where(function ($q) use ($search) {
+
+                $q->where('no_pengajuan', 'like', "%{$search}%");
+
+            });
+        }
+
+        // 🔥 FILTER TANGGAL
+        if (request('dateFrom') && request('dateTo')) {
+
+            $query->whereBetween('tgl', [
+                request('dateFrom'),
+                request('dateTo')
+            ]);
+        }
+        // 🔥 FILTER STATUS
+        if (request()->filled('statusverif')) {
+
+            $query->where('flaging', request('statusverif'));
+        }
+
+        if (request()->filled('unit')) {
+
+            $query->where('jabatan', request('unit'));
+        }
+
+
+        // 🔥 PAGINATION
+        $data = $query->simplePaginate(
+            request('per_page', 10)
+        );
+
+        return response()->json($data);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
             'no_pengajuan' => 'required',
-            'no_pengajuan' => 'required'
+            // 'no_pengajuan' => 'required'
         ], [
 
             'no_pengajuan.required' => 'Tanggal harus di isi',
-            'no_pengajuan.required' => 'Nilai Persetujuan harus di isi'
+            // 'no_pengajuan.required' => 'Nilai Persetujuan harus di isi'
         ]);
 
         try {
@@ -92,26 +119,31 @@ class VerifikasiUpController extends Controller
 
     public function tolak(Request $request)
     {
+        return $request->alasan;
         $validated = $request->validate([
             'id' => 'required',
+            'alasan' => 'required',
+            'jabatan_flag' => 'required',
         ], [
             'id.required' => 'Id harus di isi',
+            'alasan.required' => 'Alasan harus di isi',
+            'jabatan_flag.required' => 'Jabatan harus di isi',
         ]);
 
         try {
             DB::beginTransaction();
                 $user = Auth::user();
-                $data = Pengajuanup::updateOrCreate(
-                    [
-                        'id' => $validated['id']
-                    ],[
-                        'flaging' => '3',
-                        'tgl_flag' => date('Y-m-d'),
-                        'unit_flag' => 'U002',
-                        'user_flag' => $user->kode,
-                    ]
+                $data = Pengajuanup::find($validated['id']);
 
-                );
+                $data->flaging = '3';
+                $data->alasantolak = $validated['alasan'];
+                $data->tgl_flag = now();
+                $data->unit_flag = 'U002';
+                $data->jabatan_flag = $validated['jabatan_flag'];
+                $data->user_flag = $user->kode;
+
+                $data->save();
+
             DB::commit();
                 $result = Pengajuanup::with(
                     [

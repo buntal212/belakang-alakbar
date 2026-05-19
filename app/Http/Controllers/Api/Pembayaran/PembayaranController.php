@@ -64,7 +64,7 @@ class PembayaranController extends Controller
     public function indexall()
     {
         $jabatan = request('jabatan');
-
+        $tglpembayaran = request('tglpembayaran');
         $query = Pembayaran::query()
             ->leftJoin('tagihan_h as t', 't.notagihan', '=', 'pembayaran.notagihan')
             ->leftJoin('gu_r as g', 'g.nospj', '=', 'pembayaran.nopembayaran')
@@ -88,6 +88,7 @@ class PembayaranController extends Controller
                 't.jumlahditagihkan as total_tagihan',
             )
             ->where('pembayaran.flag', '1')->where('pembayaran.jabatan', $jabatan)
+            ->where('pembayaran.tgl', '<=', $tglpembayaran)
             ->whereNull('g.nogu')
             ->orderBy('pembayaran.created_at', 'desc')
             ->get();
@@ -169,6 +170,7 @@ class PembayaranController extends Controller
                     'saldo' => $validated['saldo'],
                     'sisapembayaran' => $validated['sisapembayaran'],
                     'nominal' => $validated['jumlahpembayaran'],
+                    'flag' => '1',
                     'user' => $user->kode,
                 ]
             );

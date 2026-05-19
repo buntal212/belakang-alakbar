@@ -42,8 +42,8 @@ class TagihanController extends Controller
             'kegiatan' => 'required',
             'penyedia' => 'required',
             'totalmentah' => 'required',
-            'diskon' => 'required',
-            'pajak' => 'required',
+            'diskon' => 'nullable',
+            'pajak' => 'nullable',
             'total' => 'required'
         ], [
             'tgl.required' => 'Tanggal Harus di isi',
@@ -52,8 +52,8 @@ class TagihanController extends Controller
             'kegiatan.required' => 'Kegiatan Tidak Boleh Kosong...!!!',
             'penyedia.required' => 'Penyedia Tidak Boleh Kosong...!!!',
             'totalmentah.required' => 'Total sebelum Diskon Dan Pajak Tidak Boleh Kosong...!!!',
-            'diskon.required' => 'Diskon Tidak Boleh Kosong...!!!',
-            'pajak.required' => 'Pajak Tidak Boleh Kosong...!!!',
+            // 'diskon.required' => 'Diskon Tidak Boleh Kosong...!!!',
+            // 'pajak.required' => 'Pajak Tidak Boleh Kosong...!!!',
             'total.required' => 'Total Tidak Boleh Kosong...!!!',
         ]);
 
@@ -290,9 +290,9 @@ class TagihanController extends Controller
         $pajak  = $header->pajak ?? 0;
 
         // 🔥 VALIDASI: diskon tidak boleh lebih besar dari total
-        if ($diskon > $total) {
-            throw new \Exception('Diskon tidak boleh melebihi total belanja');
-        }
+        // if ($diskon > $total) {
+        //     throw new \Exception('Diskon tidak boleh melebihi total belanja');
+        // }
 
         // hitung jumlah ditagihkan
         $jumlahditagihkan = $total - $diskon + $pajak;

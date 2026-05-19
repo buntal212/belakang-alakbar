@@ -3,6 +3,7 @@
 namespace App\Models\Pengajuangu;
 
 use App\Models\Master\Kodebelanja;
+use App\Models\Master\Penyedia;
 use App\Models\Pembayaran\Pembayaran;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -26,5 +27,10 @@ class PengajuanguRinci extends Model
     public function pembayaran()
     {
         return $this->hasOne(Pembayaran::class, 'nopembayaran', 'nospj');
+    }
+
+    public function penyedia()
+    {
+        return $this->belongsTo(Penyedia::class, 'penyedia', 'kode');
     }
 }

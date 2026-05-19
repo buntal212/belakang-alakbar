@@ -37,16 +37,6 @@ class UnitController extends Controller
             $q->where('flaging', '<>', '1')
             ->orWhereNull('flaging');
         })->orderBy('kode');
-
-        if (request('search')) {
-            $search = request('search');
-
-            $query->where(function ($q) use ($search) {
-                $q->where('kode', 'like', "%$search%")
-                ->orWhere('nama_unit', 'like', "%$search%");
-            });
-        }
-
         $data = $query->get();
         return new JsonResponse($data);
     }
