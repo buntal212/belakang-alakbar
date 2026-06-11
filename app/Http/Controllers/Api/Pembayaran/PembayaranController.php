@@ -145,17 +145,31 @@ class PembayaranController extends Controller
                 }
             }
             $user = Auth::user();
-            if ($validated['jumlahpembayaran'] > $validated['saldo']) {
-                return new JsonResponse([
-                    'message' => 'Saldo Anda Tidak Mencukupi...!!!'
-                ], 500);
+            $cek = Pembayaran::where('notagihan', $validated['notagihan'])->where('flag','1')->count();
+            if ($cek > 0) {
+                return new JsonResponse(
+                    [
+                        'message' => 'Maaf No. Tagihanan '. $validated['notagihan'] .' Sudah Diajukan dan belum dapat tindak lanjut...!!!'
+                    ],500
+                );
             }
+            // $belumterbayar = DB::table('pembayaran')
+            //                 ->where('jabatan', $validated['jabatan'])
+            //                 ->where('flag', 1)
+            //                 ->sum('nominal');
+            // $saldoalokasi = $validated['saldo'] - $belumterbayar ;
+            // // return $saldoalokasi.' || '.$validated['saldo'].' || '.$belumterbayar;
+            // if ($validated['jumlahpembayaran'] > $saldoalokasi) {
+            //     return new JsonResponse([
+            //          'message' => 'Saldo Alokasi Anda Tidak Mencukupi...!!! Sisa Saldo Alokasi Anda sebesar ' . FormatingHelper::rupiah($saldoalokasi)
+            //     ], 500);
+            // }
 
-            if ($validated['jumlahpembayaran'] > $validated['sisapembayaran']) {
-                return new JsonResponse([
-                    'message' => 'Pembayaran Terlalu Banyak...!!!'
-                ], 500);
-            }
+            // if ($validated['jumlahpembayaran'] > $validated['sisapembayaran']) {
+            //     return new JsonResponse([
+            //         'message' => 'Pembayaran Terlalu Banyak...!!!'
+            //     ], 500);
+            // }
             $simpan = Pembayaran::updateOrCreate(
                 [
                     'nopembayaran' => $notrans
@@ -174,13 +188,13 @@ class PembayaranController extends Controller
                     'user' => $user->kode,
                 ]
             );
-            $saldo = SaldoController::saldo($validated['jabatan'], $validated['jenispembayaran'], $validated['jumlahpembayaran']);
+            // $saldo = SaldoController::saldo($validated['jabatan'], $validated['jenispembayaran'], $validated['jumlahpembayaran']);
             DB::commit();
             $data = self::getnotrans($notrans);
             return new JsonResponse(
                 [
                     'data' => $data,
-                    'saldo' => $saldo,
+                    // 'saldo' => $saldoalokasi,
                     'message' => 'Data berhasil disimpan'
                 ]
             );
@@ -224,12 +238,12 @@ class PembayaranController extends Controller
             // 🔥 delete utama
             $data->delete();
             self::getnotrans($validated['nopembayaran']);
-            $saldo = SaldoController::saldokembali($data->jabatan, $data->jenispembayaran, $data->nominal);
+            // $saldo = SaldoController::saldokembali($data->jabatan, $data->jenispembayaran, $data->nominal);
             DB::commit();
 
             return response()->json([
                 'data' => $data,
-                'saldo' => $saldo,
+                // 'saldo' => $saldo,
                 'message' => 'Data berhasil dihapus',
             ]);
         } catch (\Throwable $e) {

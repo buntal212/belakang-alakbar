@@ -12,4 +12,5 @@ Route::group([
     Route::post('/simpan-heder', [TagihanController::class, 'storeheder']);
     Route::post('/simpan-rinci', [TagihanController::class, 'storerinci']);
     Route::post('/hapus-rinci', [TagihanController::class, 'hapusrinci']);
+    Route::post('/hapus-heder', [TagihanController::class, 'hapusheder']);
 });

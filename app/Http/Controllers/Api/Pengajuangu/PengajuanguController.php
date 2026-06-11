@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Pengajuangu;
 
 use App\Helpers\Formating\FormatingHelper;
 use App\Http\Controllers\Controller;
+use App\Models\Pembayaran\Pembayaran;
 use App\Models\Pengajuangu\PengajuanguHeder;
 use App\Models\Pengajuangu\PengajuanguRinci;
 use Illuminate\Http\JsonResponse;
@@ -219,7 +220,9 @@ class PengajuanguController extends Controller
             )->update([
                 'nominal' => $totalNominal
             ]);
-
+            $update = Pembayaran::where('nopembayaran',$validated[0]['nopembayaran'])->update([
+                'flag' => '2'
+            ]);
             DB::commit();
 
             $data = self::getnotrans($validated[0]['notrans']);

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Tagihan;
 
 use App\Helpers\Formating\FormatingHelper;
 use App\Http\Controllers\Controller;
+use App\Models\Pembayaran\Pembayaran;
 use App\Models\Tagihan\Tagihanbelanjaheder;
 use App\Models\Tagihan\TagihanbelanjaRinci;
 use Illuminate\Http\JsonResponse;
@@ -16,7 +17,9 @@ class TagihanController extends Controller
     public function index()
     {
         $jabatan = request('jabatan');
-        $query = Tagihanbelanjaheder::with(
+        $query = Tagihanbelanjaheder::select('tagihan_h.*','pembayaran.nopembayaran as nopembayaran')
+        ->join('pembayaran','pembayaran.notagihan','=','pembayaran.notagihan')
+        ->with(
             [
                 'rinci'=> function ($q) {
                      $q->with(['akun']);
@@ -26,7 +29,7 @@ class TagihanController extends Controller
                 'jabatan'
             ]
         )
-        ->where('jabatan', $jabatan)
+        ->where('tagihan_h.jabatan', $jabatan)
         ->orderBy('created_at','desc');
         $data = $query->simplePaginate(request('per_page', 10));
         return new JsonResponse($data);
@@ -59,6 +62,11 @@ class TagihanController extends Controller
 
         try{
             DB::beginTransaction();
+                $cek = Pembayaran::where('notagihan', $notrans)->count();
+
+                if ($cek > 0) {
+                    throw new \Exception('Tagihan Ini sudah dibayar ');
+                }
                 if(!$notrans){
                     if($validated['jabatan'] == 'J000004'){
                         DB::select('call tagihanpengeluaranyayasan(@nomor)');
@@ -150,6 +158,11 @@ class TagihanController extends Controller
         ]);
         try{
             DB::beginTransaction();
+                $cek = Pembayaran::where('notagihan', $validated['notrans'])->count();
+
+                if ($cek > 0) {
+                    throw new \Exception('Tagihan Ini sudah dibayar ');
+                }
                 $user = Auth::user();
 
                 $simpan = TagihanbelanjaRinci::create(
@@ -207,6 +220,12 @@ class TagihanController extends Controller
                 'notagihan.required' => 'No. Tagihan Harus di isi',
             ]);
 
+            $cek = Pembayaran::where('notagihan', $validated['notagihan'])->count();
+
+            if ($cek > 0) {
+                throw new \Exception('Tagihan Ini sudah dibayar ');
+            }
+
             $rincian = TagihanbelanjaRinci::find($request->id);
 
             if (!$rincian) {
@@ -235,7 +254,7 @@ class TagihanController extends Controller
 
             return new JsonResponse([
                     'message' => 'Gagal menyimpan data: ' . $e->getMessage(),
-                    'file' => $e->getFile(),
+                    'error' => $e->getMessage(),
                     'line' => $e->getLine(),
                     'trace' => $e->getTrace(),
 
@@ -326,7 +345,11 @@ class TagihanController extends Controller
                 'unit:kode,nama_unit',
                 'jabatan:kode,jabatan'
             ])
-            ->withSum('pembayaran as total_terbayar', 'nominal')
+            ->withSum([
+                'pembayaran as total_terbayar' => function ($q) {
+                    $q->where('flag', 2);
+                }
+            ], 'nominal')
             ->where('jabatan', $jabatan)
             ->orderByDesc('created_at')
             ->get()
@@ -341,5 +364,63 @@ class TagihanController extends Controller
             ->values();
 
         return new JsonResponse($data);
+    }
+
+    public function hapusheder(Request $request)
+    {
+        DB::beginTransaction();
+
+        try {
+
+            $validated = $request->validate([
+                'notagihan' => 'required'
+            ], [
+                'notagihan.required' => 'No. Tagihan harus diisi',
+            ]);
+
+            // Cari header
+            $header = Tagihanbelanjaheder::where(
+                'notagihan',
+                $validated['notagihan']
+            )->first();
+
+            if (!$header) {
+                throw new \Exception('Header tagihan tidak ditemukan');
+            }
+
+            $cek = Pembayaran::where('notagihan', $validated['notagihan'])->count();
+
+            if ($cek > 0) {
+               throw new \Exception('Tagihan Ini sudah dibayar ');
+            }
+            // Hapus semua rincian
+            TagihanbelanjaRinci::where(
+                'notagihan',
+                $validated['notagihan']
+            )->delete();
+
+            // Hapus header
+            $header->delete();
+
+            DB::commit();
+            $data = self::getnotrans($validated['notagihan']);
+            return response()->json([
+                'data' => $data,
+                'success' => true,
+                'message' => 'Header dan rincian berhasil dihapus'
+            ]);
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghapus data:'. $e->getMessage(),
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ], 500);
+        }
     }
 }

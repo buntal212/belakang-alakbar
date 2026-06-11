@@ -47,4 +47,9 @@ class FormatingHelper
         $hasil = str_pad($n, 6, '0', STR_PAD_LEFT);
         return $hasil . '/GU-' . $entitas . '/' . $semester . '/' .  date("Y");
     }
+
+    public static function rupiah($angka, $prefix = 'Rp ')
+    {
+        return $prefix . number_format($angka ?? 0, 0, ',', '.');
+    }
 }
