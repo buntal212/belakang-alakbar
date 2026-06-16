@@ -222,7 +222,14 @@ class PembayaranController extends Controller
 
         try {
             DB::beginTransaction();
-
+            $cek = Pembayaran::where('id', $request->id)
+                    ->where('flag','<>', '1')
+                    ->count();
+            if ($cek > 0) {
+                return response()->json([
+                    'message' => 'Data Sudah di verif'
+                ], 404);
+            }
             // 🔥 ambil data
             $data = Pembayaran::find($request->id);
 

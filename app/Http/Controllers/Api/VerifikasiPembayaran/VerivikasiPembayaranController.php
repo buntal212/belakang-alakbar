@@ -125,7 +125,7 @@ class VerivikasiPembayaranController extends Controller
             $id = $request->id;
             $nopembayaran = $request->nopembayaran;
             $notagihan = $request->notagihan;
-            $jenispembayaran = $request->jenispembayaran == '1' ? 'Tunai' : 'Bank';
+            $jenispembayaran = $request->jenispembayaran == '1' ? 'Bank' : 'Tunai';
             $nominal = $request->nominal;
             $pemilik = $request->pemilik;
             $unit = $request->unit;
