@@ -12,5 +12,7 @@ Route::group([
     Route::post('/simpan-heder', [PengajuanguController::class, 'simpanheder']);
     Route::post('/simpan-rinci', [PengajuanguController::class, 'simpanrinci']);
     Route::post('/delete', [PengajuanguController::class, 'hapus']);
-     Route::post('/hapus-rinci', [PengajuanguController::class, 'hapusrinci']);
+    Route::post('/hapus-rinci', [PengajuanguController::class, 'hapusrinci']);
+
+    Route::get('/get-list-pengajuanguyayasan', [PengajuanguController::class, 'listpengajuanguyayasan']);
 });

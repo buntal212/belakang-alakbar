@@ -352,4 +352,42 @@ class PengajuanguController extends Controller
 
         return $data;
     }
+
+    public function listpengajuanguyayasan()
+    {
+        $jabatan = request('jabatan');
+        $search = request('search');
+        $dateFrom = request('dateFrom');
+        $dateTo = request('dateTo');
+        $unit = request('unit');
+        $statusverif = request('statusverif');
+
+        $query = PengajuanguHeder::query()
+            ->with([
+                'rinci.pembayaran',
+                'rinci.penyedia',
+                'unit',
+                'jabatan'
+            ])
+            ->when($jabatan, function ($q) use ($jabatan) {
+                $q->where('jabatan','<>', $jabatan);
+            })
+            ->when($search, function ($q) use ($search) {
+                $q->where('nogu', 'like', "%$search%");
+            })
+            ->when($unit, function ($q) use ($unit) {
+                $q->where('jabatan', $unit);
+            })
+            ->when($statusverif !== null && $statusverif !== '', function ($q) use ($statusverif) {
+                $q->where('flag', $statusverif);
+            })
+            ->when($dateFrom && $dateTo, function ($q) use ($dateFrom, $dateTo) {
+                $q->whereBetween('tgl', [$dateFrom, $dateTo]);
+            })
+            ->orderBy('created_at', 'desc');
+
+        $data = $query->simplePaginate(request('per_page', 10));
+
+        return new JsonResponse($data);
+    }
 }

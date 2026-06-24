@@ -87,7 +87,7 @@ class PembayaranController extends Controller
                 't.pajak as total_pajak',
                 't.jumlahditagihkan as total_tagihan',
             )
-            ->where('pembayaran.flag', '1')->where('pembayaran.jabatan', $jabatan)
+            ->where('pembayaran.flag', '2')->where('pembayaran.jabatan', $jabatan)
             ->where('pembayaran.tgl', '<=', $tglpembayaran)
             ->whereNull('g.nogu')
             ->orderBy('pembayaran.created_at', 'desc')
