@@ -15,4 +15,6 @@ Route::group([
     Route::post('/hapus-rinci', [PengajuanguController::class, 'hapusrinci']);
 
     Route::get('/get-list-pengajuanguyayasan', [PengajuanguController::class, 'listpengajuanguyayasan']);
+    Route::post('/kirimbenpenerimaan', [PengajuanguController::class, 'kirimbendaharapenerimaan']);
+    Route::post('/kirimbawah', [PengajuanguController::class, 'kirimbawah']);
 });

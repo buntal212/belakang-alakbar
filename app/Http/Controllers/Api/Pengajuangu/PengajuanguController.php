@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Pengajuangu;
 
 use App\Helpers\Formating\FormatingHelper;
+use App\Http\Controllers\Api\SaldoController;
 use App\Http\Controllers\Controller;
 use App\Models\Pembayaran\Pembayaran;
 use App\Models\Pengajuangu\PengajuanguHeder;
@@ -116,6 +117,22 @@ class PengajuanguController extends Controller
                 }
             }
 
+            if($validated['jabatan'] == 'J000004')
+            {
+                $cek = PengajuanguHeder::where('flag','<>','2')->where('nogu',$notrans)->where('jabatan','J000004')->count();
+            }else{
+                $cek = PengajuanguHeder::where('flag','<>','1')->where('nogu',$notrans)->where('jabatan','<>','J000004')->count();
+            }
+
+            if($cek > 0)
+            {
+                return new JsonResponse(
+                    [
+                        'message' => 'Data Ini Tidak Boleh Diganti...!!!'
+                    ],500
+                );
+            }
+
             // 🔥 simpan header
             PengajuanguHeder::updateOrCreate(
                 ['nogu' => $notrans],
@@ -124,7 +141,7 @@ class PengajuanguController extends Controller
                     'unit' => $validated['unit'],
                     'jabatan' => $validated['jabatan'],
                     'user' => $user->kode,
-                    'flag' => '1',
+                    'flag' => $validated['jabatan'] == 'J000004' ? '2':'1',
                     'nominal' => $validated['nominal'],
                 ]
             );
@@ -178,6 +195,7 @@ class PengajuanguController extends Controller
             '*.nopembayaran' => 'required',
             '*.notagihan' => 'required',
             '*.kegiatan' => 'required',
+            '*.jabatan' => 'required',
             '*.penyedia' => 'required',
             '*.tgl_pembayaran' => 'required',
             '*.nominal' => 'required|numeric',
@@ -186,6 +204,7 @@ class PengajuanguController extends Controller
             '*.nopembayaran.required' => 'No. Pembayaran Tidak Boleh Kosong...!!!',
             '*.notagihan.required' => 'Tagihan Tidak Boleh Kosong...!!!',
             '*.kegiatan.required' => 'Kegiatan Tidak Boleh Kosong...!!!',
+            '*.jabatan.required' => 'Jabatan Tidak Boleh Kosong...!!!',
             '*.penyedia.required' => 'Penyedia Tidak Boleh Kosong...!!!',
             '*.tgl_pembayaran.required' => 'TGL Pembayaran Tidak Boleh Kosong...!!!',
             '*nominal.required' => 'Nominal Tidak Boleh Kosong...!!!',
@@ -193,6 +212,27 @@ class PengajuanguController extends Controller
         ]);
 
         try {
+            $nogu = $validated[0]['notrans'];
+            $jabatan = $validated[0]['jabatan'];
+
+            if($jabatan == 'J000004')
+            {
+                $cek = PengajuanguHeder::where('flag','<>','2')->where('nogu',$nogu)->where('jabatan','J000004')->count();
+            }else{
+                $cek = PengajuanguHeder::where('flag','<>','1')->where('nogu',$nogu)->where('jabatan','<>','J000004')->count();
+            }
+
+            // $cek = PengajuanguHeder::where('flag', '<>', '1')
+            //     ->where('nogu', $nogu)
+            //     ->count();
+
+            if ($cek > 0) {
+                DB::rollBack();
+
+                return new JsonResponse([
+                    'message' => 'Data Ini Tidak Boleh Diganti...!!!'
+                ], 500);
+            }
 
             DB::beginTransaction();
             foreach ($validated as $item) {
@@ -250,6 +290,15 @@ class PengajuanguController extends Controller
 
         try {
             DB::beginTransaction();
+            $cek = PengajuanguHeder::where('flag','<>','1')->where('nogu',$request->nogu)->count();
+            if($cek > 0)
+            {
+                return new JsonResponse(
+                    [
+                        'message' => 'Data Ini Tidak Boleh Diganti...!!!'
+                    ],500
+                );
+            }
             $data = PengajuanguHeder::find($request->id);
             $datarinci = PengajuanguRinci::where('nogu', $request->nogu);
             if (!$data) {
@@ -286,6 +335,16 @@ class PengajuanguController extends Controller
         try {
 
             DB::beginTransaction();
+
+            $cek = PengajuanguHeder::where('flag','<>','1')->where('nogu',$validated['nogu'])->count();
+            if($cek > 0)
+            {
+                return new JsonResponse(
+                    [
+                        'message' => 'Data Ini Tidak Boleh Diganti...!!!'
+                    ],500
+                );
+            }
 
             $datarinci = PengajuanguRinci::where(
                 'id',
@@ -343,6 +402,7 @@ class PengajuanguController extends Controller
         $data = PengajuanguHeder::query()
             ->with([
                 'rinci.pembayaran',
+                'rinci.penyedia',
                 'unit',
                 'jabatan'
             ])
@@ -370,7 +430,7 @@ class PengajuanguController extends Controller
                 'jabatan'
             ])
             ->when($jabatan, function ($q) use ($jabatan) {
-                $q->where('jabatan','<>', $jabatan);
+                $q->where('jabatan', $jabatan);
             })
             ->when($search, function ($q) use ($search) {
                 $q->where('nogu', 'like', "%$search%");
@@ -384,10 +444,91 @@ class PengajuanguController extends Controller
             ->when($dateFrom && $dateTo, function ($q) use ($dateFrom, $dateTo) {
                 $q->whereBetween('tgl', [$dateFrom, $dateTo]);
             })
+            ->where('jabatan','<>','J000004')
+            // ->whereIn('flag', ['1', '2'])
             ->orderBy('created_at', 'desc');
 
         $data = $query->simplePaginate(request('per_page', 10));
 
         return new JsonResponse($data);
+    }
+
+    public function kirimbendaharapenerimaan(Request $request)
+    {
+       DB::beginTransaction();
+
+        try {
+            $user = Auth::user();
+            $data = PengajuanguHeder::findOrFail($request->id);
+
+            $data->flag = '2';
+            $data->tgl_kirim_ben_penerimaan = now();
+            $data->user_kirim_ben_penerimaan = $user->kode;
+            $data->save();
+
+            DB::commit();
+            $result = self::getnotrans($request->notrans);
+            return response()->json([
+                'success' => true,
+                'message' => 'Berhasil dikirim ke bendahara penerimaan.',
+                'data' => $result
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function kirimbawah(Request $request)
+    {
+        $validated = $request->validate([
+            'no_pengajuan' => 'required',
+            'dari' => 'required',
+            'tujuan' => 'required',
+            'nilai_pengajuan' => 'required'
+        ], [
+
+            'no_pengajuan.required' => 'Tanggal harus di isi',
+            'dari.required' => 'Jabatan Pengirim Tidak Boleh Kosong',
+            'tujuan.required' => 'Jabatan Yang Dituju Tidak Boleh Kosong',
+            'nilai_pengajuan.required' => 'Nilai Persetujuan harus di isi',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+                $user = Auth::user();
+                $verif = PengajuanguHeder::where('nogu', $validated['no_pengajuan'])->first();
+                $verif->flag = '4';
+                $verif->tgl_selesai = date('Y-m-d');
+                $verif->user_selesai = $user->kode;
+                $verif->save();
+
+                $saldo = SaldoController::saldo($validated['dari'],'1',$validated['nilai_pengajuan']);
+                $saldo = SaldoController::saldokembali($validated['tujuan'],'1',$validated['nilai_pengajuan']);
+            DB::commit();
+                $result = self::getnotrans($validated['no_pengajuan']);
+
+                return new JsonResponse([
+                    'data' => $result,
+                    'saldo' => $saldo,
+                    'message' => 'Data berhasil disimpan'
+                ]);
+
+        }catch (\Exception $e) {
+            DB::rollBack();
+                return new JsonResponse([
+                    'message' => 'Gagal menyimpan data: ' . $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => $e->getTrace(),
+
+                ], 410);
+        }
     }
 }

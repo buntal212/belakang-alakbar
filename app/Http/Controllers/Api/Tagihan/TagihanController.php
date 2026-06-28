@@ -18,7 +18,7 @@ class TagihanController extends Controller
     {
         $jabatan = request('jabatan');
         $query = Tagihanbelanjaheder::select('tagihan_h.*','pembayaran.nopembayaran as nopembayaran')
-        ->join('pembayaran','pembayaran.notagihan','=','pembayaran.notagihan')
+        ->leftJoin('pembayaran', 'pembayaran.notagihan', '=', 'tagihan_h.notagihan')
         ->with(
             [
                 'rinci'=> function ($q) {
