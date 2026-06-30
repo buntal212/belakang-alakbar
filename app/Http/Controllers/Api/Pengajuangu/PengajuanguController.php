@@ -286,11 +286,22 @@ class PengajuanguController extends Controller
     {
         $validated = $request->validate([
             'id' => 'required',
+            'jabatan' => 'required',
+            'nogu' => 'required'
         ]);
 
         try {
             DB::beginTransaction();
-            $cek = PengajuanguHeder::where('flag','<>','1')->where('nogu',$request->nogu)->count();
+            $jabatan = $validated['jabatan'];
+            $nogu = $validated['nogu'];
+
+            // $cek = PengajuanguHeder::where('flag','<>','1')->where('nogu',$request->nogu)->count();
+            if($jabatan == 'J000004')
+            {
+                $cek = PengajuanguHeder::where('flag','<>','2')->where('nogu',$nogu)->where('jabatan','J000004')->count();
+            }else{
+                $cek = PengajuanguHeder::where('flag','<>','1')->where('nogu',$nogu)->where('jabatan','<>','J000004')->count();
+            }
             if($cek > 0)
             {
                 return new JsonResponse(

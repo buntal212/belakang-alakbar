@@ -8,3 +8,4 @@ Route::prefix('v1')->group(function () {
     RouteHelper::includeRouteFiles(base_path('routes/v1'));
 
 });
+
