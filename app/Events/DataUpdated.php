@@ -27,7 +27,7 @@ class DataUpdated implements ShouldBroadcastNow
     public function broadcastOn(): array
     {
         return [
-            new Channel('alakbar'),
+            new Channel('saldo.' . $this->data['jabatan']),
         ];
     }
 
@@ -36,7 +36,7 @@ class DataUpdated implements ShouldBroadcastNow
      */
     public function broadcastAs(): string
     {
-        return 'data-updated';
+       return 'saldo.updated';
     }
 
     /**

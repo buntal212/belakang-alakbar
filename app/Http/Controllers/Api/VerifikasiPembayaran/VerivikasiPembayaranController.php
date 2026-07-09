@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\VerifikasiPembayaran;
 
 use App\Helpers\Formating\FormatingHelper;
+use App\Http\Controllers\Api\SaldoController;
 use App\Http\Controllers\Controller;
 use App\Models\Master\Saldo;
 use App\Models\Pembayaran\Pembayaran;
@@ -153,14 +154,14 @@ class VerivikasiPembayaranController extends Controller
             $terima->save();
 
             // kurangi saldo
-            Saldo::where('pemilik', $pemilik)
-                ->where('jenis', $jenispembayaran)
-                ->decrement('nominal', $nominal);
-
+            // Saldo::where('pemilik', $pemilik)
+            //     ->where('jenis', $jenispembayaran)
+            //     ->decrement('nominal', $nominal);
+            SaldoController::saldo($pemilik,$request->jenispembayaran,$nominal);
             DB::commit();
             $result = self::nopembayaranBuid($id);
             return new JsonResponse([
-                'message' => 'success',
+                'message' => 'Data Tersimpan...!!',
                 'data' => $result,
             ]);
 
