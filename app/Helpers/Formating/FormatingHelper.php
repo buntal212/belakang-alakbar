@@ -52,4 +52,11 @@ class FormatingHelper
     {
         return $prefix . number_format($angka ?? 0, 0, ',', '.');
     }
+
+    public static function notranspanjar($n, $kode)
+    {
+        $hasil = str_pad($n, 6, '0', STR_PAD_LEFT);
+        return $hasil . '/' . $kode . '/' . date('m') . '/' . date('Y');
+    }
+
 }
