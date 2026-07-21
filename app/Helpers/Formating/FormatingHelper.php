@@ -59,4 +59,18 @@ class FormatingHelper
         return $hasil . '/' . $kode . '/' . date('m') . '/' . date('Y');
     }
 
+    public static function spjpanjar($n, $entitas)
+    {
+        $semester = 01;
+        $hasil = str_pad($n, 6, '0', STR_PAD_LEFT);
+        return $hasil . '/SPJP-' . $entitas . '/' . $semester . '/' .  date("Y");
+    }
+
+    public static function pengembaliansisapanjar($n, $entitas)
+    {
+        $semester = 01;
+        $hasil = str_pad($n, 6, '0', STR_PAD_LEFT);
+        return $hasil . '/PENG-PJ-' . $entitas . '/' . $semester . '/' .  date("Y");
+    }
+
 }

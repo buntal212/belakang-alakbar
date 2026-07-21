@@ -32,6 +32,25 @@ class UsersController extends Controller
         return new JsonResponse($data);
     }
 
+    public function indexall()
+    {
+        $query = User::where(function ($q) {
+            $q->where('flaging', '<>', '1')
+            ->orWhereNull('flaging');
+        })->where('kode','<>','X00X')->orderBy('kode');
+
+        if (request('search')) {
+            $search = request('search');
+
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%$search%");
+            });
+        }
+
+        $data = $query->get();
+        return new JsonResponse($data);
+    }
+
     public function store(Request $request)
     {
         $kode = $request->kode ?? null;

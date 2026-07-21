@@ -292,8 +292,8 @@ class TagihanController extends Controller
     //     return $header;
     // }
 
-   public function gettotalbelanja($notrans)
-    {
+    public function gettotalbelanja($notrans)
+        {
         // ambil header
         $header = Tagihanbelanjaheder::where('notagihan', $notrans)->first();
 

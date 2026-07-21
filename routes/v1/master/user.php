@@ -8,6 +8,7 @@ Route::group([
     'prefix' => 'master/user'
 ], function () {
     Route::get('/getlist', [UsersController::class, 'index']);
+    Route::get('/getlistall', [UsersController::class, 'indexall']);
     Route::post('/simpan', [UsersController::class, 'store']);
     Route::post('/delete', [UsersController::class, 'destroy']);
 });

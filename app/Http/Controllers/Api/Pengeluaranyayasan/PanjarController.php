@@ -19,7 +19,8 @@ class PanjarController extends Controller
        $query = panjar::with(
             [
                 'unit',
-                'jabatan'
+                'jabatan',
+                'user'
             ]
         )->where('jabatan',request('jabatan'))
         ->orderBy('created_at','desc');
@@ -36,6 +37,47 @@ class PanjarController extends Controller
         $data = $query->simplePaginate(request('per_page', 10));
         return new JsonResponse($data);
     }
+
+    public function indexall()
+    {
+        $jabatan = request('jabatan');
+
+        $data = Panjar::query()
+            ->with([
+                'unit',
+                'jabatan',
+                'user',
+            ])
+            ->withSum([
+                'SpjPanjarH as total_terbayar',
+            ], 'jumlahpembayaran')
+            ->where('jabatan', $jabatan)
+
+            // Jangan tampilkan panjar yang sudah ada di pengembaliansisapanjar
+            ->whereNotExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('pengembaliansisapanjar')
+                    ->whereColumn(
+                        'pengembaliansisapanjar.nopanjar',
+                        'panjar.notrans'
+                    );
+            })
+
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($item) {
+                $jumlahPanjar = (float) ($item->jumlahpanjar ?? 0);
+                $totalTerbayar = (float) ($item->total_terbayar ?? 0);
+
+                $item->total_terbayar = $totalTerbayar;
+                $item->sisa_bayar = $jumlahPanjar - $totalTerbayar;
+
+                return $item;
+            })
+            ->values();
+
+        return new JsonResponse($data);
+    }
     public function store(Request $request)
     {
         $notrans = $request->notrans ?? null;
@@ -44,7 +86,7 @@ class PanjarController extends Controller
             'tgl'           => 'required|date',
             'unit'          => 'required',
             'jabatan'       => 'required',
-            'kegiatan'      => 'required',
+            // 'kegiatan'      => 'required',
             'ditujukanke'   => 'required',
             'jumlahpanjar'  => 'required|numeric|gt:0',
         ], [
@@ -56,7 +98,7 @@ class PanjarController extends Controller
 
             'jabatan.required'        => 'Jabatan harus dipilih.',
 
-            'kegiatan.required'       => 'Kegiatan harus dipilih.',
+            // 'kegiatan.required'       => 'Kegiatan harus dipilih.',
 
             'ditujukanke.required'    => 'Tujuan panjar harus dipilih.',
 
@@ -94,7 +136,7 @@ class PanjarController extends Controller
                         'notrans' => $notrans
                     ],[
                         'tgl' => $validated['tgl'],
-                        'kegiatan' => $validated['kegiatan'],
+                        // 'kegiatan' => $validated['kegiatan'],
                         'unit' => $validated['unit'],
                         'jabatan' => $validated['jabatan'],
                         'ditujukanke' => $validated['ditujukanke'],
@@ -108,7 +150,8 @@ class PanjarController extends Controller
                 $result = panjar::with(
                     [
                         'unit',
-                        'jabatan'
+                        'jabatan',
+                        'user'
                     ]
                 )
                 ->where('notrans', $notrans)->get();
