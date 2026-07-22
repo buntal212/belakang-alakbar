@@ -12,5 +12,5 @@ Route::group([
     // Route::get('/get-listall', [PembayaranController::class, 'indexall']);
     Route::post('/simpanheder', [SpjPanjarController::class, 'storeheder']);
     Route::post('/simpan-rinci', [SpjPanjarController::class, 'storerinci']);
-    // Route::post('/delete', [PembayaranController::class, 'hapus']);
+    Route::post('/hapus-rinci', [SpjPanjarController::class, 'hapusrinci']);
 });

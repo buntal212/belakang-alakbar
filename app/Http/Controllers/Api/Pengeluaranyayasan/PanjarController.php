@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\SaldoController;
 use App\Http\Controllers\Controller;
 use App\Models\Master\Saldo;
 use App\Models\Panjar\panjar;
+use App\Models\SpjPanjar\spjpanjar_heder;
 use Auth;
 use DB;
 use Illuminate\Http\JsonResponse;
@@ -176,13 +177,22 @@ class PanjarController extends Controller
     {
         $validated = $request->validate([
             'id' => 'required',
+            'nopanjar' => 'required',
         ], [
-
-            'id.required' => 'Data Tidak Bisa Dihapus,karena Tidak mempunyai ID!!!',
+            'id.required' => 'Data Tidak Bisa Dihapus,karena Tidak mempunyai ID...!!!',
+            'nopanjar.required' => 'Data Tidak Bisa Dihapus,karena Tidak mempunyai No. Panjar...!!!',
         ]);
 
         try {
             DB::beginTransaction();
+                $cek = spjpanjar_heder::where('nopanjar', $validated['nopanjar'])->count();
+                if($cek > 0)
+                {
+                    return response()->json([
+                        'status' => 'ERROR',
+                        'message' => 'No. Panjar Ini Sudah Di SPJ kan...!!!'
+                    ], 404);
+                }
                 $data  = panjar::find($validated['id']);
 
                 if (!$data) {

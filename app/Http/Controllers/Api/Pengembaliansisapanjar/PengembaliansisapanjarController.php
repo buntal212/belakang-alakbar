@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Pengembaliansisapanjar;
 
 use App\Helpers\Formating\FormatingHelper;
+use App\Http\Controllers\Api\SaldoController;
 use App\Http\Controllers\Controller;
 use App\Models\Pengembaliansisapanjar\pengembaliansisapanjar;
 use Auth;
@@ -94,6 +95,7 @@ class PengembaliansisapanjarController extends Controller
                         'sisapanjar' => $validated['sisapanjar'],
                     ]
                 );
+                SaldoController::saldokembali($validated['kodejabatan'],'2',$validated['sisapanjar']);
             DB::commit();
                 $data = self::getnotrans($notrans);
                 return new JsonResponse(

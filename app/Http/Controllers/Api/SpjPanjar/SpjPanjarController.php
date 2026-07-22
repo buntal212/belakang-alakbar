@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\SpjPanjar;
 
 use App\Helpers\Formating\FormatingHelper;
 use App\Http\Controllers\Controller;
+use App\Models\Pengembaliansisapanjar\pengembaliansisapanjar;
 use App\Models\SpjPanjar\spjpanjar_heder;
 use App\Models\SpjPanjar\spjpanjar_rinci;
 use Auth;
@@ -66,7 +67,15 @@ class SpjPanjarController extends Controller
 
         try{
                 DB::beginTransaction();
-                $cekheder = self::cekheder($validated['nopanjar'],$notrans,$validated['totalpanjar'],$validated['totalbelanja'],$validated['diskon'],$validated['pajak'],$request->jumlahpembayaran);
+                $cek = pengembaliansisapanjar::where('nopanjar',$validated['nopanjar'])->count();
+                if($cek > 0)
+                {
+                    return response()->json([
+                        'status' => 'ERROR',
+                        'message' => 'No. Panjar Ini Sudah Di Kunci...!!!'
+                    ], 404);
+                }
+                self::cekheder($validated['nopanjar'],$notrans,$validated['totalpanjar'],$validated['totalbelanja'],$validated['diskon'],$validated['pajak'],$request->jumlahpembayaran);
 
                 if(!$notrans){
                     if($validated['jabatan'] == 'J000004'){
@@ -141,6 +150,7 @@ class SpjPanjarController extends Controller
     {
         $validated =  $request->validate([
             'notrans' => 'required',
+            'nopanjar' => 'required',
             'akun' => 'required',
             'rincian' => 'required',
             'qty' => 'required|numeric|gt:0',
@@ -149,6 +159,7 @@ class SpjPanjarController extends Controller
             'jumlah' => 'required|numeric|gt:0',
         ], [
             'notrans.required' => 'Notrans Harus di isi',
+            'nopanjar.required' => 'No. Panjar Harus di isi',
             'akun.required' => 'Akun Harus Diisi...!!!',
             'rincian.required' => 'Rincian Tidak Boleh Kosong...!!!',
             'qty.required' => 'Kuantitas Tidak Boleh Kosong...!!!',
@@ -163,6 +174,14 @@ class SpjPanjarController extends Controller
         ]);
         try{
             DB::beginTransaction();
+                $cekheder = pengembaliansisapanjar::where('nopanjar',$validated['nopanjar'])->count();
+                if($cekheder > 0)
+                {
+                    return response()->json([
+                        'status' => 'ERROR',
+                        'message' => 'No. Panjar Ini Sudah Di Kunci...!!!'
+                    ], 404);
+                }
                 $nopanjar = spjpanjar_heder::select('nopanjar')->where('nospjpanjar', $validated['notrans'])->first();
                 $cek = self::sisapanjar($nopanjar->nopanjar,$validated['jumlah']);
                 if($cek->sisa_setelah_transaksi < 0)
@@ -208,7 +227,9 @@ class SpjPanjarController extends Controller
     {
         $data = spjpanjar_heder::with(
             [
-                'rinci',
+                'rinci'=> function ($q) {
+                     $q->with(['akun']);
+                },
                 'Penyedia',
                 'jabatan',
                 'unit'
@@ -368,7 +389,94 @@ class SpjPanjarController extends Controller
             'total_pembayaran' => $totalPembayaran,
             'sisa_panjar' => $sisaPanjarSesudah,
         ];
+    }
 
+    public function hapusrinci(Request $request)
+    {
+        $validated = $request->validate([
+            'id' => 'required',
+            'nopanjar' => 'required'
+        ], [
+            'id.required' => 'ID tidak boleh kosong...!!!',
+            'nopanjar.required' => 'No. Panjar tidak boleh kosong...!!!',
+        ]);
 
+        try {
+
+            DB::beginTransaction();
+
+            $cek = pengembaliansisapanjar::where('nopanjar',$validated['nopanjar'])->count();
+            if($cek > 0)
+            {
+                return new JsonResponse(
+                    [
+                        'message' => 'Data Ini Tidak Boleh Diganti...!!!'
+                    ],500
+                );
+            }
+
+            $datarinci = spjpanjar_rinci::where(
+                'id',
+                $validated['id']
+            )->first();
+
+            if (!$datarinci) {
+
+                return response()->json([
+                    'message' => 'Data tidak ditemukan'
+                ], 404);
+            }
+
+            // 🔥 hapus rincian
+            $datarinci->delete();
+
+            // 🔥 hitung ulang total rincian
+            $totalNominal = spjpanjar_rinci::where(
+                'nospjpanjar',
+                $validated['notrans']
+            )->sum('jumlah');
+
+            $header = spjpanjar_heder::where(
+                'nospjpanjar',
+                $validated['notrans']
+            )->select('diskon', 'pajak')->first();
+
+            if (!$header) {
+                throw new \Exception('Data SPJ Panjar tidak ditemukan');
+            }
+
+            $diskon = (float) ($header->diskon ?? 0);
+            $pajak = (float) ($header->pajak ?? 0);
+
+            $jumlahPembayaran = (float) $totalNominal - $diskon + $pajak;
+
+            spjpanjar_heder::where(
+                'nospjpanjar',
+                $validated['notrans']
+            )->update([
+                'totalbelanja' => $totalNominal,
+                'jumlahpembayaran' => max(0, $jumlahPembayaran),
+            ]);
+
+            DB::commit();
+
+            $data = self::getnotrans(
+                $validated['notrans']
+            );
+
+            return response()->json([
+                'data' => $data,
+                'message' => 'Data berhasil dihapus',
+            ]);
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Gagal menghapus data',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }
