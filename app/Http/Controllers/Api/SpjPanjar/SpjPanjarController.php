@@ -27,7 +27,7 @@ class SpjPanjarController extends Controller
                 'penyedia',
                 'unit',
                 'jabatan',
-                'user'
+                'user',
             ]
         )
         ->where('spjpanjar_h.jabatan', $jabatan)
@@ -41,7 +41,7 @@ class SpjPanjarController extends Controller
         $validated =  $request->validate([
             'nopanjar' => 'required',
             'tglspjpanjar' => 'required',
-            'tglspj' => 'required',
+            'tglpanjar' => 'required',
             'jabatan' => 'required',
             'kodeunit' => 'required',
             'kodeditujukjanke' => 'required',
@@ -55,7 +55,7 @@ class SpjPanjarController extends Controller
         ], [
             'nopanjar.required' => 'No. Panjar Harus di isi',
             'tglspjpanjar.required' => 'Tanggal SPJ Panjar Harus di isi',
-            'tglspj.required' => 'Tanggal Panjar Harus di isi',
+            'tglpanjar.required' => 'Tanggal Panjar Harus di isi',
             'jabatan.required' => 'Jabatan Harus Diisi...!!!',
             'kodeunit.required' => 'Unit Tidak Boleh Kosong...!!!',
             'kegiatan.required' => 'Kegiatan Tidak Boleh Kosong...!!!',
@@ -67,13 +67,19 @@ class SpjPanjarController extends Controller
 
         try{
                 DB::beginTransaction();
+                if($validated['tglpanjar'] > $validated['tglspjpanjar']){
+                    return response()->json([
+                        'status' => 'ERROR',
+                        'message' => 'Tanggal SPJ Panjar Tidak boleh kurang dari Tanggal Panjar...!!!'
+                    ], 500);
+                }
                 $cek = pengembaliansisapanjar::where('nopanjar',$validated['nopanjar'])->count();
                 if($cek > 0)
                 {
                     return response()->json([
                         'status' => 'ERROR',
                         'message' => 'No. Panjar Ini Sudah Di Kunci...!!!'
-                    ], 404);
+                    ], 500);
                 }
                 self::cekheder($validated['nopanjar'],$notrans,$validated['totalpanjar'],$validated['totalbelanja'],$validated['diskon'],$validated['pajak'],$request->jumlahpembayaran);
 
@@ -112,7 +118,7 @@ class SpjPanjarController extends Controller
                     ],[
                         'nopanjar' => $validated['nopanjar'],
                         'tglspjpanjar' => $validated['tglspjpanjar'],
-                        'tglpanjar' => $validated['tglspj'],
+                        'tglpanjar' => $validated['tglpanjar'],
                         'unit' => $validated['kodeunit'],
                         'jabatan' => $validated['jabatan'],
                         'ditujukanke' => $validated['kodeditujukjanke'],
@@ -225,14 +231,17 @@ class SpjPanjarController extends Controller
     }
     public function getnotrans($notrans)
     {
-        $data = spjpanjar_heder::with(
+        $data = spjpanjar_heder::select('spjpanjar_h.*','panjar.notrans as notagihan')
+        ->leftJoin('panjar', 'panjar.notrans', '=', 'spjpanjar_h.nopanjar')
+        ->with(
             [
                 'rinci'=> function ($q) {
                      $q->with(['akun']);
                 },
                 'Penyedia',
                 'jabatan',
-                'unit'
+                'unit',
+                'pengembaliansisapanjar'
             ]
         )->where('nospjpanjar', $notrans)
         ->get();
@@ -478,5 +487,66 @@ class SpjPanjarController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function hapusheder(Request $request)
+    {
+        $validated = $request->validate([
+            'id' => 'required',
+            'nopanjar' => 'required',
+            'nospjpanjar' => 'required'
+        ], [
+            'id.required' => 'ID tidak boleh kosong...!!!',
+            'nopanjar.required' => 'No. Panjar tidak boleh kosong...!!!',
+            'nospjpanjar.required' => 'No. Panjar tidak boleh kosong...!!!',
+        ]);
+
+    try {
+        // Cek sebelum membuka transaksi
+        $adaPengembalian = pengembaliansisapanjar::where(
+            'nopanjar',
+            $validated['nopanjar']
+        )->exists();
+
+        if ($adaPengembalian) {
+            return response()->json([
+                'message' => 'Data ini tidak boleh dihapus karena sudah memiliki pengembalian sisa panjar...!!!',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($validated) {
+            // Hapus rincian terlebih dahulu
+            spjpanjar_rinci::where(
+                'nospjpanjar',
+                $validated['nospjpanjar']
+            )->delete();
+
+            // Hapus header
+            $deleted = spjpanjar_heder::where('id', $validated['id'])
+                ->where('nopanjar', $validated['nopanjar'])
+                ->where('nospjpanjar', $validated['nospjpanjar'])
+                ->delete();
+
+            if ($deleted === 0) {
+                throw new \Exception('Data header SPJ Panjar tidak ditemukan.');
+            }
+        });
+         DB::commit();
+
+            $data = self::getnotrans(
+                $validated['nospjpanjar']
+            );
+
+        return response()->json([
+            'data' => $data,
+            'message' => 'Data berhasil dihapus',
+        ]);
+
+    } catch (\Throwable $e) {
+        return response()->json([
+            'message' => 'Gagal menghapus data',
+            'error'   => $e->getMessage(),
+        ], 500);
+    }
     }
 }

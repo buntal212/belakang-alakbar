@@ -21,7 +21,8 @@ class PanjarController extends Controller
             [
                 'unit',
                 'jabatan',
-                'user'
+                'user',
+                'SpjPanjarH'
             ]
         )->where('jabatan',request('jabatan'))
         ->orderBy('created_at','desc');

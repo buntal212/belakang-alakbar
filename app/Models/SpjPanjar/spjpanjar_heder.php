@@ -38,4 +38,5 @@ class spjpanjar_heder extends Model
     {
          return $this->hasOne(User::class, 'kode', 'ditujukanke');
     }
+
 }

@@ -20,7 +20,12 @@ class PengembaliansisapanjarController extends Controller
             [
                 'unit',
                 'jabatan',
-                'user'
+                'user',
+                'panjar' => function ($panjar) {
+                    $panjar->with([
+                        'user'
+                    ]);
+                }
             ]
         )
         ->where('jabatan', $jabatan)
@@ -121,7 +126,12 @@ class PengembaliansisapanjarController extends Controller
             [
                 'unit',
                 'jabatan',
-                'user'
+                'user',
+                'panjar' => function ($panjar) {
+                    $panjar->with([
+                        'user'
+                    ]);
+                }
             ]
         )
         ->where('notrans', $notrans)

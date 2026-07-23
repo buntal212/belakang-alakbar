@@ -4,6 +4,7 @@ namespace App\Models\Panjar;
 
 use App\Models\Master\Jabatan;
 use App\Models\Master\Unit;
+use App\Models\Pengembaliansisapanjar\pengembaliansisapanjar;
 use App\Models\SpjPanjar\spjpanjar_heder;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -34,4 +35,5 @@ class panjar extends Model
     {
         return $this->hasMany(spjpanjar_heder::class,'nopanjar','notrans');
     }
+
 }

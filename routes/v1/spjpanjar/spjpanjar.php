@@ -13,4 +13,5 @@ Route::group([
     Route::post('/simpanheder', [SpjPanjarController::class, 'storeheder']);
     Route::post('/simpan-rinci', [SpjPanjarController::class, 'storerinci']);
     Route::post('/hapus-rinci', [SpjPanjarController::class, 'hapusrinci']);
+    Route::post('/delete', [SpjPanjarController::class, 'hapusheder']);
 });
