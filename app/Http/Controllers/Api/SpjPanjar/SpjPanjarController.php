@@ -241,7 +241,7 @@ class SpjPanjarController extends Controller
                 'Penyedia',
                 'jabatan',
                 'unit',
-                'pengembaliansisapanjar'
+                'user'
             ]
         )->where('nospjpanjar', $notrans)
         ->get();
