@@ -65,15 +65,10 @@ class PembayaranController extends Controller
     {
         $jabatan = request('jabatan');
         $tglpembayaran = request('tglpembayaran');
-        $query = Pembayaran::query()
+
+        $pembayaran = Pembayaran::query()
             ->leftJoin('tagihan_h as t', 't.notagihan', '=', 'pembayaran.notagihan')
             ->leftJoin('gu_r as g', 'g.nospj', '=', 'pembayaran.nopembayaran')
-            ->with([
-                'rinci.akun',
-                'penyedia',
-                'unit',
-                'jabatan'
-            ])
             ->select(
                 'pembayaran.*',
                 't.id as tagihan_id',
@@ -86,12 +81,63 @@ class PembayaranController extends Controller
                 't.diskon as total_diskon',
                 't.pajak as total_pajak',
                 't.jumlahditagihkan as total_tagihan',
+                DB::raw("'LS' as asal"),
             )
-            ->where('pembayaran.flag', '2')->where('pembayaran.jabatan', $jabatan)
+            ->where('pembayaran.flag', '2')
+            ->where('pembayaran.jabatan', $jabatan)
             ->where('pembayaran.tgl', '<=', $tglpembayaran)
-            ->whereNull('g.nogu')
-            ->orderBy('pembayaran.created_at', 'desc')
+            ->whereNull('g.nogu');
+
+        $pengembalianSisaPanjar = DB::table('pengembaliansisapanjar as p')
+            ->leftJoin('gu_r as g', 'g.nospj', '=', 'p.notrans')
+            ->selectRaw(
+                "p.id,
+                p.notrans as nopembayaran,
+                p.tgl,
+                p.nopanjar as notagihan,
+                NULL as penyedia,
+                '2' as jenispembayaran,
+                p.jabatan,
+                p.unit,
+                p.userentry as user,
+                p.totalpanjar as saldo,
+                0 as sisapembayaran,
+                p.sisapanjar as nominal,
+                '2' as flag,
+                NULL as tgl_verif,
+                NULL as user_verif,
+                NULL as alasan,
+                p.created_at,
+                NULL as updated_at,
+                NULL as tagihan_id,
+                p.tgl as tgl_tagihan,
+                'Pengembalian Sisa Panjar' as kegiatan_tagihan,
+                NULL as kode_penyedia,
+                p.unit as kode_unit,
+                p.jabatan as kode_jabatan,
+                p.totalpembayaran as total_belanja,
+                0 as total_diskon,
+                0 as total_pajak,
+                p.sisapanjar as total_tagihan,
+                'PANJAR' as asal"
+            )
+            ->where('p.jabatan', $jabatan)
+            ->where('p.tgl', '<=', $tglpembayaran)
+            ->whereNull('g.nogu');
+
+        $data = DB::query()
+            ->fromSub($pembayaran->unionAll($pengembalianSisaPanjar), 'transaksi')
+            ->orderByDesc('created_at')
             ->get();
+
+        $query = Pembayaran::hydrate(
+            $data->map(fn ($item) => (array) $item)->all()
+        )->load([
+            'rinci.akun',
+            'penyedia',
+            'unit',
+            'jabatan'
+        ]);
 
         return new JsonResponse($query);
     }
