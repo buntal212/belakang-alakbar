@@ -174,7 +174,7 @@ class PanjarController extends Controller
         }
     }
 
-     public function delete(Request $request)
+    public function delete(Request $request)
     {
         $validated = $request->validate([
             'id' => 'required',
