@@ -5,6 +5,7 @@ namespace App\Models\Pengajuangu;
 use App\Models\Master\Kodebelanja;
 use App\Models\Master\Penyedia;
 use App\Models\Pembayaran\Pembayaran;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -32,5 +33,10 @@ class PengajuanguRinci extends Model
     public function penyedia()
     {
         return $this->belongsTo(Penyedia::class, 'penyedia', 'kode');
+    }
+
+    public function penerimaUser()
+    {
+        return $this->belongsTo(User::class, 'penerima', 'kode');
     }
 }

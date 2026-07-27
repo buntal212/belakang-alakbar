@@ -81,6 +81,14 @@ class PembayaranController extends Controller
                 't.diskon as total_diskon',
                 't.pajak as total_pajak',
                 't.jumlahditagihkan as total_tagihan',
+                DB::raw(
+                    'CAST(NULL AS CHAR CHARACTER SET utf8mb4) '
+                    . 'COLLATE utf8mb4_unicode_ci as kode_penerima'
+                ),
+                DB::raw(
+                    'CAST(NULL AS CHAR CHARACTER SET utf8mb4) '
+                    . 'COLLATE utf8mb4_unicode_ci as diberikan_kepada'
+                ),
                 DB::raw("'LS' as asal"),
             )
             ->where('pembayaran.flag', '2')
@@ -90,6 +98,14 @@ class PembayaranController extends Controller
 
         $pengembalianSisaPanjar = DB::table('pengembaliansisapanjar as p')
             ->leftJoin('gu_r as g', 'g.nospj', '=', 'p.notrans')
+            ->leftJoin('panjar as pj', 'pj.notrans', '=', 'p.nopanjar')
+            ->leftJoin('users as u', function ($join) {
+                $join->on(
+                    DB::raw('u.kode COLLATE utf8mb4_unicode_ci'),
+                    '=',
+                    DB::raw('pj.ditujukanke COLLATE utf8mb4_unicode_ci')
+                );
+            })
             ->selectRaw(
                 "p.id,
                 p.notrans as nopembayaran,
@@ -119,6 +135,10 @@ class PembayaranController extends Controller
                 0 as total_diskon,
                 0 as total_pajak,
                 p.sisapanjar as total_tagihan,
+                CONVERT(pj.ditujukanke USING utf8mb4)
+                    COLLATE utf8mb4_unicode_ci as kode_penerima,
+                CONVERT(COALESCE(u.name, pj.ditujukanke, '-') USING utf8mb4)
+                    COLLATE utf8mb4_unicode_ci as diberikan_kepada,
                 'PANJAR' as asal"
             )
             ->where('p.jabatan', $jabatan)

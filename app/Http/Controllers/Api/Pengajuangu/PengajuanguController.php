@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class PengajuanguController extends Controller
 {
@@ -24,6 +25,7 @@ class PengajuanguController extends Controller
             ->with([
                 'rinci.pembayaran',
                 'rinci.penyedia',
+                'rinci.penerimaUser',
                 'unit',
                 'jabatan'
             ])
@@ -196,7 +198,9 @@ class PengajuanguController extends Controller
             '*.notagihan' => 'required',
             '*.kegiatan' => 'required',
             '*.jabatan' => 'required',
-            '*.penyedia' => 'required',
+            '*.jenisbelanja' => 'required|in:LS,PANJAR',
+            '*.penyedia' => 'nullable|string',
+            '*.penerima' => 'nullable|string',
             '*.tgl_pembayaran' => 'required',
             '*.nominal' => 'required|numeric',
         ], [
@@ -205,11 +209,26 @@ class PengajuanguController extends Controller
             '*.notagihan.required' => 'Tagihan Tidak Boleh Kosong...!!!',
             '*.kegiatan.required' => 'Kegiatan Tidak Boleh Kosong...!!!',
             '*.jabatan.required' => 'Jabatan Tidak Boleh Kosong...!!!',
-            '*.penyedia.required' => 'Penyedia Tidak Boleh Kosong...!!!',
+            '*.jenisbelanja.required' => 'Jenis belanja tidak boleh kosong.',
+            '*.jenisbelanja.in' => 'Jenis belanja harus LS atau PANJAR.',
             '*.tgl_pembayaran.required' => 'TGL Pembayaran Tidak Boleh Kosong...!!!',
             '*nominal.required' => 'Nominal Tidak Boleh Kosong...!!!',
             '*nominal.numeric' => 'Nominal Harus Berupa Angka...!!!',
         ]);
+
+        foreach ($validated as $index => $item) {
+            if ($item['jenisbelanja'] === 'LS' && empty($item['penyedia'])) {
+                throw ValidationException::withMessages([
+                    "{$index}.penyedia" => 'Penyedia wajib diisi untuk jenis belanja LS.',
+                ]);
+            }
+
+            if ($item['jenisbelanja'] === 'PANJAR' && empty($item['penerima'])) {
+                throw ValidationException::withMessages([
+                    "{$index}.penerima" => 'Penerima wajib diisi untuk jenis belanja PANJAR.',
+                ]);
+            }
+        }
 
         try {
             $nogu = $validated[0]['notrans'];
@@ -236,6 +255,7 @@ class PengajuanguController extends Controller
 
             DB::beginTransaction();
             foreach ($validated as $item) {
+                $jenisBelanja = $item['jenisbelanja'];
 
                 PengajuanguRinci::create([
                     'nogu' => $item['notrans'],
@@ -243,7 +263,9 @@ class PengajuanguController extends Controller
                     'notagihan' => $item['notagihan'] ?? null,
                     'tgl_pembayaran' => $item['tgl_pembayaran'] ?? null,
                     'kegiatan' => $item['kegiatan'] ?? null,
-                    'penyedia' => $item['penyedia'] ?? null,
+                    'jenisbelanja' => $jenisBelanja,
+                    'penyedia' => $jenisBelanja === 'LS' ? $item['penyedia'] : null,
+                    'penerima' => $jenisBelanja === 'PANJAR' ? $item['penerima'] : null,
                     'nominalpembayaran' => $item['nominal'],
                 ]);
             }
@@ -414,6 +436,7 @@ class PengajuanguController extends Controller
             ->with([
                 'rinci.pembayaran',
                 'rinci.penyedia',
+                'rinci.penerimaUser',
                 'unit',
                 'jabatan'
             ])
@@ -437,6 +460,7 @@ class PengajuanguController extends Controller
             ->with([
                 'rinci.pembayaran',
                 'rinci.penyedia',
+                'rinci.penerimaUser',
                 'unit',
                 'jabatan'
             ])
