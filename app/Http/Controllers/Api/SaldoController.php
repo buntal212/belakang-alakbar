@@ -11,8 +11,8 @@ class SaldoController extends Controller
 {
     public function index()
     {
-        $pemiliik = request('jabatan');
-        $data = Saldo::where('pemilik', $pemiliik)->orderBy('jenis')->get();
+        $pemilik = request('jabatan');
+        $data = Saldo::where('pemilik', $pemilik)->orderBy('jenis')->get();
         return new JsonResponse($data);
     }
 
