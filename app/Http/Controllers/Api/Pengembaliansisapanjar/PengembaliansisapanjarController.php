@@ -101,6 +101,7 @@ class PengembaliansisapanjarController extends Controller
                     ]
                 );
                 SaldoController::saldokembali($validated['kodejabatan'],'2',$validated['sisapanjar']);
+                SaldoController::saldopanjarkeluar($validated['kodejabatan'],$validated['sisapanjar']);
             DB::commit();
                 $data = self::getnotrans($notrans);
                 return new JsonResponse(

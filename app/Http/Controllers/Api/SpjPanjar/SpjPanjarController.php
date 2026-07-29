@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\SpjPanjar;
 
 use App\Helpers\Formating\FormatingHelper;
+use App\Http\Controllers\Api\SaldoController;
 use App\Http\Controllers\Controller;
 use App\Models\Pengembaliansisapanjar\pengembaliansisapanjar;
 use App\Models\SpjPanjar\spjpanjar_heder;
@@ -17,8 +18,8 @@ class SpjPanjarController extends Controller
     public function index()
     {
         $jabatan = request('jabatan');
-        $query = spjpanjar_heder::select('spjpanjar_h.*','panjar.notrans as notagihan')
-        ->leftJoin('panjar', 'panjar.notrans', '=', 'spjpanjar_h.nopanjar')
+        $query = spjpanjar_heder::select('spjpanjar_h.*','pengembaliansisapanjar.nopanjar as notagihan')
+        ->leftJoin('pengembaliansisapanjar', 'pengembaliansisapanjar.nopanjar', '=', 'spjpanjar_h.nopanjar')
         ->with(
             [
                 'rinci'=> function ($q) {
@@ -156,6 +157,7 @@ class SpjPanjarController extends Controller
     {
         $validated =  $request->validate([
             'notrans' => 'required',
+            'jabatan' => 'required',
             'nopanjar' => 'required',
             'akun' => 'required',
             'rincian' => 'required',
@@ -165,6 +167,7 @@ class SpjPanjarController extends Controller
             'jumlah' => 'required|numeric|gt:0',
         ], [
             'notrans.required' => 'Notrans Harus di isi',
+            'jabatan.required' => 'Jabatan Harus di isi',
             'nopanjar.required' => 'No. Panjar Harus di isi',
             'akun.required' => 'Akun Harus Diisi...!!!',
             'rincian.required' => 'Rincian Tidak Boleh Kosong...!!!',
@@ -210,6 +213,7 @@ class SpjPanjarController extends Controller
                     ]
                 );
                 self::gettotalbelanja($validated['notrans']);
+                SaldoController::saldopanjarkeluar($validated['jabatan'],$validated['jumlah']);
             DB::commit();
                 $data = self::getnotrans($validated['notrans']);
                 return new JsonResponse(
@@ -231,8 +235,8 @@ class SpjPanjarController extends Controller
     }
     public function getnotrans($notrans)
     {
-        $data = spjpanjar_heder::select('spjpanjar_h.*','panjar.notrans as notagihan')
-        ->leftJoin('panjar', 'panjar.notrans', '=', 'spjpanjar_h.nopanjar')
+        $data = spjpanjar_heder::select('spjpanjar_h.*','pengembaliansisapanjar.nopanjar as notagihan')
+        ->leftJoin('pengembaliansisapanjar', 'pengembaliansisapanjar.nopanjar', '=', 'spjpanjar_h.nopanjar')
         ->with(
             [
                 'rinci'=> function ($q) {
@@ -404,10 +408,16 @@ class SpjPanjarController extends Controller
     {
         $validated = $request->validate([
             'id' => 'required',
-            'nopanjar' => 'required'
+            'nopanjar' => 'required',
+            'notrans' => 'required',
+            'jabatan' => 'required',
+            'nominal' => 'required',
         ], [
             'id.required' => 'ID tidak boleh kosong...!!!',
             'nopanjar.required' => 'No. Panjar tidak boleh kosong...!!!',
+            'notrans.required' => 'No. Spj Panjar tidak boleh kosong...!!!',
+            'jabatan.required' => 'Jabatan tidak boleh kosong...!!!',
+            'nominal.required' => 'Nominal Panjar tidak boleh kosong...!!!',
         ]);
 
         try {
@@ -466,7 +476,7 @@ class SpjPanjarController extends Controller
                 'totalbelanja' => $totalNominal,
                 'jumlahpembayaran' => max(0, $jumlahPembayaran),
             ]);
-
+            SaldoController::saldopanjarmasuk($validated['jabatan'],$validated['nominal']);
             DB::commit();
 
             $data = self::getnotrans(
@@ -494,11 +504,15 @@ class SpjPanjarController extends Controller
         $validated = $request->validate([
             'id' => 'required',
             'nopanjar' => 'required',
-            'nospjpanjar' => 'required'
+            'nospjpanjar' => 'required',
+            'jabatan' => 'required',
+            'nominal' => 'required',
         ], [
             'id.required' => 'ID tidak boleh kosong...!!!',
             'nopanjar.required' => 'No. Panjar tidak boleh kosong...!!!',
             'nospjpanjar.required' => 'No. Panjar tidak boleh kosong...!!!',
+            'jabatan.required' => 'Jabatan tidak boleh kosong...!!!',
+            'nominal.required' => 'Nominal tidak boleh kosong...!!!',
         ]);
 
     try {
@@ -531,6 +545,7 @@ class SpjPanjarController extends Controller
                 throw new \Exception('Data header SPJ Panjar tidak ditemukan.');
             }
         });
+         SaldoController::saldopanjarmasuk($validated['jabatan'],$validated['nominal']);
          DB::commit();
 
             $data = self::getnotrans(

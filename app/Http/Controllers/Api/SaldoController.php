@@ -76,4 +76,52 @@ class SaldoController extends Controller
 
         return $data;
     }
+
+    public static function saldopanjarkeluar($jabatan, $nominal)
+    {
+
+
+       $keluar = Saldo::where('jenis', 'Panjar')->where('pemilik', $jabatan)->first();
+
+       if (!$keluar) {
+            throw new \Exception('Data saldo tidak ditemukan');
+        }
+
+        $keluar->decrement('nominal', $nominal);
+        $data = Saldo::where('pemilik', $jabatan)->get();
+
+        \Log::info('BROADCAST SALDO DIPANGGIL', [
+            'channel' => 'saldo.' . $jabatan,
+            // 'jenis' => $jenis,
+            'data' => $data->toArray(),
+        ]);
+
+        broadcast(new SaldoUpdated([
+            'pemilik' => $jabatan,
+            // 'jenis' => $jenis,
+            'data' => $data,
+        ]));
+
+        return $data;
+    }
+
+    public static function saldopanjarmasuk($jabatan, $nominal)
+    {
+
+        $masuk = Saldo::where('jenis', 'Panjar')->where('pemilik', $jabatan)->first();
+
+       if (!$masuk) {
+            throw new \Exception('Data saldo tidak ditemukan');
+        }
+
+        $masuk->increment('nominal', $nominal);
+        $data = Saldo::where('pemilik', $jabatan)->get();
+
+        broadcast(new SaldoUpdated([
+            'pemilik' => $jabatan,
+            'data' => $data,
+        ]));
+
+        return $data;
+    }
 }

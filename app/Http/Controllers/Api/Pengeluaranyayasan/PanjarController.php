@@ -148,6 +148,7 @@ class PanjarController extends Controller
 
                 );
                 SaldoController::saldo($validated['jabatan'],'2',$validated['jumlahpanjar']);
+                SaldoController::saldopanjarmasuk($validated['jabatan'],$validated['jumlahpanjar']);
             DB::commit();
                 $result = panjar::with(
                     [
@@ -206,6 +207,7 @@ class PanjarController extends Controller
                 // HAPUS PERMANEN
                 $data->delete();
                 SaldoController::saldokembali($request->jabatan,'2',$request->jumlahpanjar);
+                SaldoController::saldopanjarkeluar($request->jabatan,$request->jumlahpanjar);
             DB::commit();
                 return new JsonResponse([
                     'data' => $data ,

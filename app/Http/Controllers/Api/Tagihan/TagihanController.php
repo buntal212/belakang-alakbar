@@ -17,21 +17,38 @@ class TagihanController extends Controller
     public function index()
     {
         $jabatan = request('jabatan');
-        $query = Tagihanbelanjaheder::select('tagihan_h.*','pembayaran.nopembayaran as nopembayaran')
-        ->leftJoin('pembayaran', 'pembayaran.notagihan', '=', 'tagihan_h.notagihan')
-        ->with(
-            [
-                'rinci'=> function ($q) {
-                     $q->with(['akun']);
+
+        $pembayaran = Pembayaran::query()
+            ->selectRaw(
+                'notagihan,
+                MAX(nopembayaran) as nopembayaran,
+                COALESCE(SUM(CASE WHEN flag = ? THEN nominal ELSE 0 END), 0) as sudah_dibayar',
+                ['2']
+            )
+            ->groupBy('notagihan');
+
+        $query = Tagihanbelanjaheder::query()
+            ->select(
+                'tagihan_h.*',
+                'rekap_pembayaran.nopembayaran',
+                DB::raw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) as sudah_dibayar')
+            )
+            ->leftJoinSub($pembayaran, 'rekap_pembayaran', function ($join) {
+                $join->on('rekap_pembayaran.notagihan', '=', 'tagihan_h.notagihan');
+            })
+            ->with([
+                'rinci' => function ($q) {
+                    $q->with(['akun']);
                 },
                 'penyedia',
                 'unit',
                 'jabatan'
-            ]
-        )
-        ->where('tagihan_h.jabatan', $jabatan)
-        ->orderBy('created_at','desc');
+            ])
+            ->where('tagihan_h.jabatan', $jabatan)
+            ->orderBy('tagihan_h.created_at', 'desc');
+
         $data = $query->simplePaginate(request('per_page', 10));
+
         return new JsonResponse($data);
     }
 

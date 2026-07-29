@@ -187,6 +187,13 @@ class PembayaranController extends Controller
 
         try {
             DB::beginTransaction();
+            if($validated['jumlahpembayaran'] > $validated['sisapembayaran']){
+                return new JsonResponse(
+                    [
+                        'message' => 'Maaf Jumlah Pembayaran Lebih Besar dari Sisa Pembayaran...!!!'
+                    ],500
+                );
+            }
             if (!$notrans) {
                 if ($validated['jabatan'] == 'J000004') {
                     DB::select('call pembayaranpengeluaranyayasan(@nomor)');
