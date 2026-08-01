@@ -257,6 +257,23 @@ class PengajuanguController extends Controller
             foreach ($validated as $item) {
                 $jenisBelanja = $item['jenisbelanja'];
 
+                if ($jenisBelanja === 'PANJAR') {
+                    $nominalPembayaran = DB::table('pengembaliansisapanjar')
+                        ->where('notrans', $item['nopembayaran'])
+                        ->value('totalpembayaran');
+                } else {
+                    $nominalPembayaran = Pembayaran::where(
+                        'nopembayaran',
+                        $item['nopembayaran']
+                    )->value('nominal');
+                }
+
+                if ($nominalPembayaran === null) {
+                    throw ValidationException::withMessages([
+                        'nopembayaran' => "Pembayaran {$item['nopembayaran']} tidak ditemukan.",
+                    ]);
+                }
+
                 PengajuanguRinci::create([
                     'nogu' => $item['notrans'],
                     'nospj' => $item['nopembayaran'] ?? null,
@@ -266,8 +283,15 @@ class PengajuanguController extends Controller
                     'jenisbelanja' => $jenisBelanja,
                     'penyedia' => $jenisBelanja === 'LS' ? $item['penyedia'] : null,
                     'penerima' => $jenisBelanja === 'PANJAR' ? $item['penerima'] : null,
-                    'nominalpembayaran' => $item['nominal'],
+                    'nominalpembayaran' => $nominalPembayaran,
                 ]);
+
+                if ($jenisBelanja === 'LS') {
+                    Pembayaran::where(
+                        'nopembayaran',
+                        $item['nopembayaran']
+                    )->update(['flag' => '2']);
+                }
             }
 
             $totalNominal = PengajuanguRinci::where(
@@ -281,9 +305,6 @@ class PengajuanguController extends Controller
                 $validated[0]['notrans']
             )->update([
                 'nominal' => $totalNominal
-            ]);
-            $update = Pembayaran::where('nopembayaran',$validated[0]['nopembayaran'])->update([
-                'flag' => '2'
             ]);
             DB::commit();
 

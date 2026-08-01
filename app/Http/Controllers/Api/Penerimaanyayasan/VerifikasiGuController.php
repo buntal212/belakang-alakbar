@@ -18,11 +18,14 @@ class VerifikasiGuController extends Controller
         $search = request('search');
         $dateFrom = request('dateFrom');
         $dateTo = request('dateTo');
+        $statusverif = request('statusverif');
+        $unit = request('unit');
 
         $query = PengajuanguHeder::query()
             ->with([
                 'rinci.pembayaran',
                 'rinci.penyedia',
+                'rinci.penerimaUser',
                 'unit',
                 'jabatan'
             ])
@@ -32,10 +35,21 @@ class VerifikasiGuController extends Controller
             ->when($dateFrom && $dateTo, function ($q) use ($dateFrom, $dateTo) {
                 $q->whereBetween('tgl', [$dateFrom, $dateTo]);
             })
+            ->when($unit, function ($q) use ($unit) {
+                $q->where('unit', $unit);
+            })
             ->when($search, function ($q) use ($search) {
                 $q->where('nogu', 'like', "%$search%");
             })
-            ->where('flag', '2')->orWhere('flag', '3')->orWhere('flag', '4')->orWhere('flag', '5')
+            ->when(
+                $statusverif !== null && $statusverif !== '',
+                function ($q) use ($statusverif) {
+                    $q->where('flag', $statusverif);
+                },
+                function ($q) {
+                    $q->whereIn('flag', ['2', '3', '4', '5']);
+                }
+            )
             ->orderBy('created_at', 'desc');
 
         $data = $query->simplePaginate(request('per_page', 10));
@@ -96,6 +110,7 @@ class VerifikasiGuController extends Controller
             ->with([
                 'rinci.pembayaran',
                 'rinci.penyedia',
+                'rinci.penerimaUser',
                 'unit',
                 'jabatan'
             ])
