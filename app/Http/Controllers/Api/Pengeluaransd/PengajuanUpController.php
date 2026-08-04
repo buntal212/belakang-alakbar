@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Pengeluaransd;
 
 use App\Helpers\Formating\FormatingHelper;
+use App\Events\SaldoUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Master\Saldo;
 use App\Models\Pengeluaranyayasan\Pengajuanup;
@@ -23,14 +24,11 @@ class PengajuanUpController extends Controller
         )->where('unit','U003')
         ->orderBy('created_at','desc');
 
-        // if (request('search')) {
-        //     $search = request('search');
+        if (request('search')) {
+            $search = request('search');
 
-        //     $query->where(function ($q) use ($search) {
-        //         $q->where('username', 'like', "%$search%")
-        //         ->orWhere('name', 'like', "%$search%");
-        //     });
-        // }
+            $query->where('no_pengajuan', 'like', "%{$search}%");
+        }
 
         $data = $query->simplePaginate(request('per_page', 10));
         return new JsonResponse($data);
@@ -175,7 +173,6 @@ class PengajuanUpController extends Controller
                     ]
 
                 );
-              // pengirim
                 $pengirim = Saldo::where('pemilik', $validated['unitpengirim'])
                     ->where('jenis', 'Bank')
                     ->lockForUpdate()
@@ -184,7 +181,6 @@ class PengajuanUpController extends Controller
                 $pengirim->nominal -= (int) $validated['nilai_pengajuan'];
                 $pengirim->save();
 
-                // penerima
                 $penerima = Saldo::where('pemilik', $validated['unitpenerima'])
                     ->where('jenis', 'Bank')
                     ->lockForUpdate()
@@ -193,6 +189,8 @@ class PengajuanUpController extends Controller
                 $penerima->nominal += (int) $validated['nilai_pengajuan'];
                 $penerima->save();
             DB::commit();
+                self::broadcastSaldo($validated['unitpengirim']);
+                self::broadcastSaldo($validated['unitpenerima']);
                 $result = Pengajuanup::with(
                     [
                         'unit',
@@ -215,5 +213,15 @@ class PengajuanUpController extends Controller
 
                 ], 410);
         }
+    }
+
+    private static function broadcastSaldo(string $pemilik): void
+    {
+        $saldo = Saldo::where('pemilik', $pemilik)->orderBy('jenis')->get();
+
+        broadcast(new SaldoUpdated([
+            'pemilik' => $pemilik,
+            'data' => $saldo,
+        ]));
     }
 }

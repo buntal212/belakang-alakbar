@@ -27,14 +27,11 @@ class PanjarController extends Controller
         )->where('jabatan',request('jabatan'))
         ->orderBy('created_at','desc');
 
-        // if (request('search')) {
-        //     $search = request('search');
+        if (request('search')) {
+            $search = request('search');
 
-        //     $query->where(function ($q) use ($search) {
-        //         $q->where('username', 'like', "%$search%")
-        //         ->orWhere('name', 'like', "%$search%");
-        //     });
-        // }
+            $query->where('notrans', 'like', "%{$search}%");
+        }
 
         $data = $query->simplePaginate(request('per_page', 10));
         return new JsonResponse($data);

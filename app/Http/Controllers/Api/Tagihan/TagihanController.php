@@ -17,6 +17,7 @@ class TagihanController extends Controller
     public function index()
     {
         $jabatan = request('jabatan');
+        $search = request('search');
 
         $pembayaran = Pembayaran::query()
             ->selectRaw(
@@ -45,6 +46,15 @@ class TagihanController extends Controller
                 'jabatan'
             ])
             ->where('tagihan_h.jabatan', $jabatan)
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($searchQuery) use ($search) {
+                    $searchQuery->where('tagihan_h.notagihan', 'like', "%{$search}%")
+                        ->orWhere('tagihan_h.kegiatan', 'like', "%{$search}%")
+                        ->orWhereHas('penyedia', function ($penyediaQuery) use ($search) {
+                            $penyediaQuery->where('nama', 'like', "%{$search}%");
+                        });
+                });
+            })
             ->orderBy('tagihan_h.created_at', 'desc');
 
         $data = $query->simplePaginate(request('per_page', 10));

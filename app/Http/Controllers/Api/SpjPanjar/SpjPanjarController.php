@@ -18,6 +18,7 @@ class SpjPanjarController extends Controller
     public function index()
     {
         $jabatan = request('jabatan');
+        $search = request('search');
         $query = spjpanjar_heder::select('spjpanjar_h.*','pengembaliansisapanjar.nopanjar as notagihan')
         ->leftJoin('pengembaliansisapanjar', 'pengembaliansisapanjar.nopanjar', '=', 'spjpanjar_h.nopanjar')
         ->with(
@@ -32,6 +33,13 @@ class SpjPanjarController extends Controller
             ]
         )
         ->where('spjpanjar_h.jabatan', $jabatan)
+        ->when($search, function ($query) use ($search) {
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('spjpanjar_h.nospjpanjar', 'like', "%{$search}%")
+                    ->orWhere('spjpanjar_h.nopanjar', 'like', "%{$search}%")
+                    ->orWhere('spjpanjar_h.kegiatan', 'like', "%{$search}%");
+            });
+        })
         ->orderBy('spjpanjar_h.created_at','desc');
         $data = $query->simplePaginate(request('per_page', 10));
         return new JsonResponse($data);

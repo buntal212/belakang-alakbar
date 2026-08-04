@@ -16,6 +16,7 @@ class PengembaliansisapanjarController extends Controller
     public function index()
     {
         $jabatan = request('jabatan');
+        $search = request('search');
         $query = pengembaliansisapanjar::with(
             [
                 'unit',
@@ -29,6 +30,12 @@ class PengembaliansisapanjarController extends Controller
             ]
         )
         ->where('jabatan', $jabatan)
+        ->when($search, function ($query) use ($search) {
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('notrans', 'like', "%{$search}%")
+                    ->orWhere('nopanjar', 'like', "%{$search}%");
+            });
+        })
         ->orderBy('created_at','desc');
         $data = $query->simplePaginate(request('per_page', 10));
         return new JsonResponse($data);

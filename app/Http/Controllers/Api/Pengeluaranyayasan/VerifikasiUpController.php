@@ -119,7 +119,7 @@ class VerifikasiUpController extends Controller
 
     public function tolak(Request $request)
     {
-        return $request->alasan;
+
         $validated = $request->validate([
             'id' => 'required',
             'alasan' => 'required',
