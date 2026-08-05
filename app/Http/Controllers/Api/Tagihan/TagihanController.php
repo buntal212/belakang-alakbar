@@ -48,7 +48,13 @@ class TagihanController extends Controller
             ->where('tagihan_h.jabatan', $jabatan)
             ->when($search, function ($q) use ($search) {
                 $q->where(function ($searchQuery) use ($search) {
-                    $searchQuery->where('tagihan_h.notagihan', 'like', "%{$search}%")
+                    // Cari pada bagian nomor/kode tagihan saja. Bagian tahun
+                    // (contoh /2026) tidak ikut agar pencarian "20" tidak
+                    // mencocokkan seluruh tagihan pada tahun yang sama.
+                    $searchQuery->whereRaw(
+                        "SUBSTRING_INDEX(tagihan_h.notagihan, '/', 3) LIKE ?",
+                        ["%{$search}%"]
+                    )
                         ->orWhere('tagihan_h.kegiatan', 'like', "%{$search}%")
                         ->orWhereHas('penyedia', function ($penyediaQuery) use ($search) {
                             $penyediaQuery->where('nama', 'like', "%{$search}%");
