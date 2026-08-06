@@ -74,15 +74,27 @@ class WahaWebhookController extends Controller
             ])
             ->first();
 
+        // if (!$bendahara) {
+        //     $this->kirimPesan(
+        //         $chatId,
+        //         'Nomor WhatsApp Anda belum terdaftar sebagai bendahara.'
+        //     );
+
+        //     return response()->json([
+        //         'status' => true,
+        //         'message' => 'Pengirim belum terdaftar',
+        //     ]);
+        // }
+
         if (!$bendahara) {
-            $this->kirimPesan(
-                $chatId,
-                'Nomor WhatsApp Anda belum terdaftar sebagai bendahara.'
-            );
+            Log::info('Pengirim WAHA belum terdaftar', [
+                'chat_id' => $chatId,
+                'body' => $body,
+            ]);
 
             return response()->json([
                 'status' => true,
-                'message' => 'Pengirim belum terdaftar',
+                'message' => 'Pengirim belum terdaftar dan diabaikan',
             ]);
         }
 
