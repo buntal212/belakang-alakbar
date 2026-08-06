@@ -108,11 +108,22 @@ class PanjarController extends Controller
 
         try {
             DB::beginTransaction();
+                $panjarLama = $notrans
+                    ? panjar::where('notrans', $notrans)->lockForUpdate()->first()
+                    : null;
+
+                if ($panjarLama && $panjarLama->jabatan !== $validated['jabatan']) {
+                    throw new \Exception('Jabatan panjar tidak boleh diubah.');
+                }
+
+                $nominalLama = (float) ($panjarLama->jumlahpanjar ?? 0);
+                $selisihPanjar = (float) $validated['jumlahpanjar'] - $nominalLama;
+
                 $ceksaldo = Saldo::where('pemilik', $validated['jabatan'])
                 ->where('jenis', 'Tunai')
                 ->value('nominal');
 
-                if ($validated['jumlahpanjar'] > ($ceksaldo ?? 0)) {
+                if ($selisihPanjar > ($ceksaldo ?? 0)) {
 
                     DB::rollBack();
 
@@ -144,8 +155,14 @@ class PanjarController extends Controller
                     ]
 
                 );
-                SaldoController::saldo($validated['jabatan'],'2',$validated['jumlahpanjar']);
-                SaldoController::saldopanjarmasuk($validated['jabatan'],$validated['jumlahpanjar']);
+                if ($selisihPanjar > 0) {
+                    SaldoController::saldo($validated['jabatan'], '2', $selisihPanjar);
+                    SaldoController::saldopanjarmasuk($validated['jabatan'], $selisihPanjar);
+                } elseif ($selisihPanjar < 0) {
+                    $nominalDikembalikan = abs($selisihPanjar);
+                    SaldoController::saldopanjarkeluar($validated['jabatan'], $nominalDikembalikan);
+                    SaldoController::saldokembali($validated['jabatan'], '2', $nominalDikembalikan);
+                }
             DB::commit();
                 $result = panjar::with(
                     [
@@ -203,8 +220,8 @@ class PanjarController extends Controller
 
                 // HAPUS PERMANEN
                 $data->delete();
-                SaldoController::saldokembali($request->jabatan,'2',$request->jumlahpanjar);
-                SaldoController::saldopanjarkeluar($request->jabatan,$request->jumlahpanjar);
+                SaldoController::saldopanjarkeluar($data->jabatan, $data->jumlahpanjar);
+                SaldoController::saldokembali($data->jabatan, '2', $data->jumlahpanjar);
             DB::commit();
                 return new JsonResponse([
                     'data' => $data ,

@@ -18,21 +18,9 @@ class SaldoController extends Controller
 
     public static function saldo($jabatan,$jenis, $nominal)
     {
+        $jenisSaldo = $jenis === '1' ? 'Bank' : 'Tunai';
 
-        if($jenis === '1'){
-            $keluar = Saldo::where('jenis', 'Bank')->where('pemilik', $jabatan)->first();
-            // $masuk = Saldo::where('jenis', 'Tunai')->where('pemilik', $jabatan)->first();
-
-        }else{
-            $keluar = Saldo::where('jenis', 'Tunai')->where('pemilik', $jabatan)->first();
-            // $masuk = Saldo::where('jenis', 'Bank')->where('pemilik', $jabatan)->first();
-
-        }
-       if (!$keluar) {
-            throw new \Exception('Data saldo tidak ditemukan');
-        }
-
-        $keluar->decrement('nominal', $nominal);
+        self::kurangiSaldo($jabatan, $jenisSaldo, $nominal);
         $data = Saldo::where('pemilik', $jabatan)->get();
 
         \Log::info('BROADCAST SALDO DIPANGGIL', [
@@ -52,6 +40,8 @@ class SaldoController extends Controller
 
     public static function saldokembali($jabatan,$jenis, $nominal)
     {
+        self::pastikanNominalPositif($nominal);
+
         if($jenis === '1'){
             // $keluar = Saldo::where('jenis', 'Bank')->where('pemilik', $jabatan)->first();
             $masuk = Saldo::where('jenis', 'Bank')->where('pemilik', $jabatan)->first();
@@ -79,15 +69,7 @@ class SaldoController extends Controller
 
     public static function saldopanjarkeluar($jabatan, $nominal)
     {
-
-
-       $keluar = Saldo::where('jenis', 'Panjar')->where('pemilik', $jabatan)->first();
-
-       if (!$keluar) {
-            throw new \Exception('Data saldo tidak ditemukan');
-        }
-
-        $keluar->decrement('nominal', $nominal);
+        self::kurangiSaldo($jabatan, 'Panjar', $nominal);
         $data = Saldo::where('pemilik', $jabatan)->get();
 
         \Log::info('BROADCAST SALDO DIPANGGIL', [
@@ -105,8 +87,43 @@ class SaldoController extends Controller
         return $data;
     }
 
+    private static function kurangiSaldo($jabatan, string $jenis, $nominal): void
+    {
+        $nominal = (float) $nominal;
+
+        self::pastikanNominalPositif($nominal);
+
+        $berhasil = Saldo::where('jenis', $jenis)
+            ->where('pemilik', $jabatan)
+            ->where('nominal', '>=', $nominal)
+            ->decrement('nominal', $nominal);
+
+        if ($berhasil === 0) {
+            $saldo = Saldo::where('jenis', $jenis)
+                ->where('pemilik', $jabatan)
+                ->value('nominal');
+
+            if ($saldo === null) {
+                throw new \Exception('Data saldo tidak ditemukan');
+            }
+
+            throw new \Exception(
+                "Saldo {$jenis} tidak mencukupi. Saldo tersedia Rp " .
+                number_format((float) $saldo, 0, ',', '.')
+            );
+        }
+    }
+
+    private static function pastikanNominalPositif($nominal): void
+    {
+        if (!is_numeric($nominal) || (float) $nominal <= 0) {
+            throw new \Exception('Nominal saldo harus berupa angka dan lebih dari nol');
+        }
+    }
+
     public static function saldopanjarmasuk($jabatan, $nominal)
     {
+        self::pastikanNominalPositif($nominal);
 
         $masuk = Saldo::where('jenis', 'Panjar')->where('pemilik', $jabatan)->first();
 

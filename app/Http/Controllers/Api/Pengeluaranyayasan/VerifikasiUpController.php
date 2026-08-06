@@ -78,7 +78,7 @@ class VerifikasiUpController extends Controller
                 $belumverif = Pengajuanup::where('flaging', '1')->where('jabatan','!=','J000004')->sum('nilai_pengajuan');
                 $saldo = Saldo::where('pemilik','J000004')->where('jenis','Bank')->first();
                 if($belumverif > $saldo->nominal){
-                    return new JsonResponse(['message' => 'Saldo Tidak Mencukupi'],500);
+                    return new JsonResponse(['message' => 'Saldo Tidak Mencukupi...!!'],500);
                 }
                 $user = Auth::user();
                 $data = Pengajuanup::updateOrCreate(
