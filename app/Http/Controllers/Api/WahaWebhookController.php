@@ -21,6 +21,13 @@ class WahaWebhookController extends Controller
         $body = strtolower(trim((string) ($payload['body'] ?? '')));
         $fromMe = (bool) ($payload['fromMe'] ?? false);
 
+        if (str_ends_with($chatId, '@g.us')) {
+            return response()->json([
+                'status' => true,
+                'message' => 'Pesan grup diabaikan',
+            ]);
+        }
+
         if ($event !== 'message') {
             return response()->json([
                 'status' => true,
