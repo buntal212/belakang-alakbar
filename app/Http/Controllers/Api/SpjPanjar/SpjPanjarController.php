@@ -60,6 +60,7 @@ class SpjPanjarController extends Controller
             'totalbelanja' => 'required',
             'diskon' => 'nullable',
             'pajak' => 'nullable',
+            'sumberdana' => 'required',
 
         ], [
             'nopanjar.required' => 'No. Panjar Harus di isi',
@@ -121,6 +122,7 @@ class SpjPanjarController extends Controller
                 //         'message' => 'Diskon Tidak Boleh Lebih besar Dari Total Belanja'
                 //     ],500);
                 // }
+                $saldoLama = (float) (spjpanjar_heder::where('nospjpanjar', $notrans)->value('jumlahpembayaran') ?? 0);
                 $simpan = spjpanjar_heder::updateOrCreate(
                     [
                         'nospjpanjar' => $notrans
@@ -133,6 +135,7 @@ class SpjPanjarController extends Controller
                         'ditujukanke' => $validated['kodeditujukjanke'],
                         'kegiatan' => $validated['kegiatan'],
                         'penyedia' => $validated['penyedia'],
+                        'sumberdana' => $validated['sumberdana'],
                         'jumlahpanjar' => $validated['totalpanjar'],
                         'totalbelanja' => $validated['totalbelanja'],
                         'diskon' => $validated['diskon'],
@@ -141,7 +144,8 @@ class SpjPanjarController extends Controller
                         'user' => $user->kode,
                     ]
                 );
-                self::gettotalbelanja($notrans);
+                $headerTerbaru = self::gettotalbelanja($notrans);
+                self::rekonsiliasiSaldoPanjar($validated['jabatan'], $saldoLama, $headerTerbaru->jumlahpembayaran);
             DB::commit();
                 $data = self::getnotrans($notrans);
                 return new JsonResponse(
@@ -208,6 +212,7 @@ class SpjPanjarController extends Controller
 
                 $user = Auth::user();
 
+                $saldoLama = (float) (spjpanjar_heder::where('nospjpanjar', $validated['notrans'])->value('jumlahpembayaran') ?? 0);
                 $simpan = spjpanjar_rinci::create(
                     [
                         'nospjpanjar' => $validated['notrans'],
@@ -220,8 +225,8 @@ class SpjPanjarController extends Controller
                         'user' => $user->kode,
                     ]
                 );
-                self::gettotalbelanja($validated['notrans']);
-                SaldoController::saldopanjarkeluar($validated['jabatan'],$validated['jumlah']);
+                $headerTerbaru = self::gettotalbelanja($validated['notrans']);
+                self::rekonsiliasiSaldoPanjar($validated['jabatan'], $saldoLama, $headerTerbaru->jumlahpembayaran);
             DB::commit();
                 $data = self::getnotrans($validated['notrans']);
                 return new JsonResponse(
@@ -455,6 +460,7 @@ class SpjPanjarController extends Controller
             }
 
             // 🔥 hapus rincian
+            $saldoLama = (float) (spjpanjar_heder::where('nospjpanjar', $validated['notrans'])->value('jumlahpembayaran') ?? 0);
             $datarinci->delete();
 
             // 🔥 hitung ulang total rincian
@@ -484,7 +490,7 @@ class SpjPanjarController extends Controller
                 'totalbelanja' => $totalNominal,
                 'jumlahpembayaran' => max(0, $jumlahPembayaran),
             ]);
-            SaldoController::saldopanjarmasuk($validated['jabatan'],$validated['nominal']);
+            self::rekonsiliasiSaldoPanjar($validated['jabatan'], $saldoLama, max(0, $jumlahPembayaran));
             DB::commit();
 
             $data = self::getnotrans(
@@ -536,6 +542,7 @@ class SpjPanjarController extends Controller
             ], 422);
         }
 
+        $saldoLama = (float) (spjpanjar_heder::where('nospjpanjar', $validated['nospjpanjar'])->value('jumlahpembayaran') ?? 0);
         DB::transaction(function () use ($validated) {
             // Hapus rincian terlebih dahulu
             spjpanjar_rinci::where(
@@ -553,7 +560,7 @@ class SpjPanjarController extends Controller
                 throw new \Exception('Data header SPJ Panjar tidak ditemukan.');
             }
         });
-         SaldoController::saldopanjarmasuk($validated['jabatan'],$validated['nominal']);
+         self::rekonsiliasiSaldoPanjar($validated['jabatan'], $saldoLama, 0);
          DB::commit();
 
             $data = self::getnotrans(
@@ -571,5 +578,18 @@ class SpjPanjarController extends Controller
             'error'   => $e->getMessage(),
         ], 500);
     }
+
+    }
+
+    private static function rekonsiliasiSaldoPanjar(string $jabatan, float $saldoLama, $saldoBaru): void
+    {
+        $saldoBaru = max(0, (float) $saldoBaru);
+        $selisih = round($saldoBaru - $saldoLama, 2);
+
+        if ($selisih > 0) {
+            SaldoController::saldopanjarkeluar($jabatan, $selisih);
+        } elseif ($selisih < 0) {
+            SaldoController::saldopanjarmasuk($jabatan, abs($selisih));
+        }
     }
 }

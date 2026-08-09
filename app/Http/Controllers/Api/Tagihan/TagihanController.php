@@ -18,6 +18,7 @@ class TagihanController extends Controller
     {
         $jabatan = request('jabatan');
         $search = request('search');
+        $status = request('status');
 
         $pembayaran = Pembayaran::query()
             ->selectRaw(
@@ -46,6 +47,9 @@ class TagihanController extends Controller
                 'jabatan'
             ])
             ->where('tagihan_h.jabatan', $jabatan)
+            ->when($status === 'lunas', fn ($q) => $q->whereRaw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) >= tagihan_h.jumlahditagihkan'))
+            ->when($status === 'proses', fn ($q) => $q->whereRaw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) > 0 AND COALESCE(rekap_pembayaran.sudah_dibayar, 0) < tagihan_h.jumlahditagihkan'))
+            ->when($status === 'belum', fn ($q) => $q->whereRaw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) = 0'))
             ->when($search, function ($q) use ($search) {
                 $q->where(function ($searchQuery) use ($search) {
                     // Cari pada bagian nomor/kode tagihan saja. Bagian tahun
@@ -80,7 +84,8 @@ class TagihanController extends Controller
             'totalmentah' => 'required',
             'diskon' => 'nullable',
             'pajak' => 'nullable',
-            'total' => 'required'
+            'total' => 'required',
+            'sumberdana' => 'required'
         ], [
             'tgl.required' => 'Tanggal Harus di isi',
             'jabatan.required' => 'Jabatan Harus Diisi...!!!',
@@ -138,6 +143,7 @@ class TagihanController extends Controller
                         'jabatan' => $validated['jabatan'],
                         'kegiatan' => $validated['kegiatan'],
                         'penyedia' => $validated['penyedia'],
+                        'sumberdana' => $validated['sumberdana'],
                         'jumlahbelanja' => $validated['totalmentah'],
                         'diskon' => $validated['diskon'],
                         'pajak' => $validated['pajak'],

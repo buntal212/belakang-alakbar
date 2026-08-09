@@ -39,11 +39,14 @@ class PengajuanUpController extends Controller
         $kode = $request->no_pengajuan ?? null;
         $validated = $request->validate([
             'tgl' => 'required',
-            'nilai_pengajuan' => 'required'
+            'nilai_pengajuan' => 'required',
+            'alasan' => 'nullable|string',
+            'alasan' => 'required'
         ], [
 
             'tgl.required' => 'Tanggal harus di isi',
             'nilai_pengajuan.required' => 'Nilai Pengajuan harus di isi',
+            'alasan.required' => 'Alasan harus di isi',
         ]);
 
         try {
@@ -67,7 +70,9 @@ class PengajuanUpController extends Controller
                         'unit' => 'U001',
                         'jabatan' => 'J000004',
                         'user' => $user->kode,
-                        'nilai_pengajuan' =>$validated['nilai_pengajuan']
+                        'nilai_pengajuan' =>$validated['nilai_pengajuan'],
+                        'alasan' => $validated['alasan'] ?? null,
+                        'alasan' =>$validated['alasan']
                     ]
 
                 );

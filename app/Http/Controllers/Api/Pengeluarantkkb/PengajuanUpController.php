@@ -42,6 +42,7 @@ class PengajuanUpController extends Controller
         $validated = $request->validate([
             'tgl' => 'required',
             'nilai_pengajuan' => 'required',
+            'alasan' => 'nullable|string',
             'jabatan' => 'required'
         ], [
 
@@ -71,7 +72,8 @@ class PengajuanUpController extends Controller
                         'unit' => 'U002',
                         'user' => $user->kode,
                         'jabatan' => $validated['jabatan'],
-                        'nilai_pengajuan' =>$validated['nilai_pengajuan']
+                        'nilai_pengajuan' =>$validated['nilai_pengajuan'],
+                        'alasan' => $validated['alasan'] ?? null
                     ]
 
                 );
