@@ -73,4 +73,11 @@ class FormatingHelper
         return $hasil . '/PENG-PJ-' . $entitas . '/' . $semester . '/' .  date("Y");
     }
 
+    public static function pengembaliankas($n, $entitas)
+    {
+        $semester = 01;
+        $hasil = str_pad($n, 6, '0', STR_PAD_LEFT);
+        return $hasil . '/KEMB-KS-' . $entitas . '/' . $semester . '/' .  date("Y");
+    }
+
 }
