@@ -26,11 +26,6 @@ class WahaWebhookController extends Controller
 
         $fromMe = (bool) ($payload['fromMe'] ?? false);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Abaikan event selain message
-        |--------------------------------------------------------------------------
-        */
         if ($event !== 'message') {
             return response()->json([
                 'status' => true,
@@ -38,11 +33,6 @@ class WahaWebhookController extends Controller
             ]);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Validasi pesan
-        |--------------------------------------------------------------------------
-        */
         if (
             !$chatId ||
             $chatId === 'status@broadcast' ||
@@ -55,11 +45,6 @@ class WahaWebhookController extends Controller
             ]);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Abaikan grup
-        |--------------------------------------------------------------------------
-        */
         if (str_ends_with($chatId, '@g.us')) {
             return response()->json([
                 'status' => true,
@@ -69,15 +54,8 @@ class WahaWebhookController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Convert WAHA LID -> nomor WhatsApp
+        | Convert LID -> nomor WhatsApp
         |--------------------------------------------------------------------------
-        |
-        | Contoh:
-        |
-        | 166052797354175@lid
-        | menjadi
-        | 6285172215454@c.us
-        |
         */
         if (str_ends_with($chatId, '@lid')) {
             $chatId = $this->resolveLid($chatId);
@@ -94,7 +72,15 @@ class WahaWebhookController extends Controller
         |--------------------------------------------------------------------------
         | Cari Bendahara
         |--------------------------------------------------------------------------
+        |
+        | Dicari berdasarkan:
+        | 1. Chat ID asli dari WAHA (@lid)
+        | 2. Chat ID hasil resolve (@c.us)
+        | 3. Nomor WA tanpa @c.us
+        |
         */
+        $nomorWa = str_replace('@c.us', '', $chatId);
+
         $bendahara = WahaBendahara::query()
             ->join(
                 'm_jabatan',
@@ -102,10 +88,25 @@ class WahaWebhookController extends Controller
                 '=',
                 'waha_bendahara.pemilik'
             )
-            ->where(
-                'waha_bendahara.chat_id',
-                $chatId
-            )
+            ->where(function ($query) use (
+                $chatId,
+                $originalChatId,
+                $nomorWa
+            ) {
+                $query
+                    ->where(
+                        'waha_bendahara.chat_id',
+                        $originalChatId
+                    )
+                    ->orWhere(
+                        'waha_bendahara.chat_id',
+                        $chatId
+                    )
+                    ->orWhere(
+                        'waha_bendahara.nomor_wa',
+                        $nomorWa
+                    );
+            })
             ->where(
                 'waha_bendahara.aktif',
                 true
@@ -122,15 +123,11 @@ class WahaWebhookController extends Controller
             ])
             ->first();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Bendahara tidak ditemukan
-        |--------------------------------------------------------------------------
-        */
         if (!$bendahara) {
             Log::info('Pengirim WAHA belum terdaftar', [
                 'original_chat_id' => $originalChatId,
                 'chat_id' => $chatId,
+                'nomor_wa' => $nomorWa,
                 'body' => $body,
             ]);
 
@@ -139,6 +136,13 @@ class WahaWebhookController extends Controller
                 'message' => 'Pengirim belum terdaftar dan diabaikan',
             ]);
         }
+
+        Log::info('Bendahara WAHA ditemukan', [
+            'id' => $bendahara->id,
+            'nama' => $bendahara->nama,
+            'pemilik' => $bendahara->kode_jabatan,
+            'chat_id' => $chatId,
+        ]);
 
         /*
         |--------------------------------------------------------------------------
@@ -161,7 +165,8 @@ class WahaWebhookController extends Controller
     }
 
     /**
-     * Convert WAHA Linked ID (@lid) menjadi nomor WhatsApp (@c.us)
+     * Convert WAHA Linked ID (@lid)
+     * menjadi nomor WhatsApp (@c.us)
      */
     private function resolveLid(string $lid): string
     {
@@ -254,6 +259,11 @@ class WahaWebhookController extends Controller
             );
 
         if ($saldo->isEmpty()) {
+            Log::warning('Data saldo tidak ditemukan', [
+                'pemilik' => $pemilik,
+                'chat_id' => $chatId,
+            ]);
+
             $this->kirimPesan(
                 $chatId,
                 "Data saldo untuk jabatan *{$pemilik}* tidak ditemukan."
@@ -366,6 +376,7 @@ class WahaWebhookController extends Controller
                 [
                     'chat_id' => $chatId,
                     'status' => $response->status(),
+                    'response' => $response->body(),
                 ]
             );
         } catch (\Throwable $e) {
