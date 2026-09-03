@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Master\Menus;
+use App\Models\Master\UserMenuAccess;
+use App\Models\Master\UserSubmenuAccess;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -46,9 +48,12 @@ class AuthController extends Controller
 
         } else {
 
-            // USER BIASA
-            $menus = Menus::where('type', 'default')
-                ->with('submenus')
+            // USER BIASA: hanya menu dan submenu yang diberikan pada Hak Akses.
+            $menuIds = UserMenuAccess::where('user_id', $user->id)->pluck('menu_id');
+            $submenuIds = UserSubmenuAccess::where('user_id', $user->id)->pluck('submenu_id');
+            $menus = Menus::whereIn('id', $menuIds)
+                ->with(['submenus' => fn ($q) => $q->whereIn('id', $submenuIds)->orderBy('urut')])
+                ->orderBy('urut')
                 ->get();
         }
 

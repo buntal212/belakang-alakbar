@@ -10,6 +10,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use App\Models\Master\UserMenuAccess;
+use App\Models\Master\UserSubmenuAccess;
+use App\Models\Master\Jabatan;
+use App\Models\Master\Unit;
 
 #[Fillable([
     'kode',
@@ -38,5 +42,25 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function menuAccesses()
+    {
+        return $this->hasMany(UserMenuAccess::class);
+    }
+
+    public function submenuAccesses()
+    {
+        return $this->hasMany(UserSubmenuAccess::class);
+    }
+
+    public function jabatanData()
+    {
+        return $this->belongsTo(Jabatan::class, 'jabatan', 'kode');
+    }
+
+    public function unitData()
+    {
+        return $this->belongsTo(Unit::class, 'unit', 'kode');
     }
 }
