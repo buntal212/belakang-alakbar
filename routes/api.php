@@ -15,6 +15,11 @@ Route::prefix('waha')->group(function () {
     RouteHelper::includeRouteFiles(base_path('routes/waha'));
 });
 
+// Frontend menggunakan API versi v1. Webhook lama tetap tersedia di /api/waha/webhook.
+Route::prefix('v1/waha')->group(function () {
+    RouteHelper::includeRouteFiles(base_path('routes/waha'));
+});
+
 // Route::post('/webhook/waha', function (Request $request) {
 //     $event = $request->input('event');
 //     $payload = $request->input('payload', []);
