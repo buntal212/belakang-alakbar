@@ -34,6 +34,13 @@ class FormatingHelper
         return $hasil . '/TG-' . $entitas . '/' . $semester . '/' .  date("Y");
     }
 
+    public static function tagihanLs($n)
+    {
+        $hasil = str_pad($n, 6, '0', STR_PAD_LEFT);
+
+        return $hasil . '/TGLS-PK/1/' . date('Y');
+    }
+
     public static function pembayaran($n, $entitas)
     {
         $semester = 01;

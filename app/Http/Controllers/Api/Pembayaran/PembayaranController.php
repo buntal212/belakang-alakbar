@@ -6,6 +6,7 @@ use App\Helpers\Formating\FormatingHelper;
 use App\Http\Controllers\Api\SaldoController;
 use App\Http\Controllers\Controller;
 use App\Models\Pembayaran\Pembayaran;
+use App\Models\Pembayaran\PembayaranLs;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,10 +14,17 @@ use Illuminate\Support\Facades\DB;
 
 class PembayaranController extends Controller
 {
+    public function indexLsRoute(Request $request) { $request->merge(['sumberdana' => 'LS']); return $this->index(); }
+    public function simpanLsRoute(Request $request) { $request->merge(['ls' => true]); return $this->simpan($request); }
+    public function hapusLsRoute(Request $request) { $request->merge(['ls' => true]); return $this->hapus($request); }
+
     public function index()
     {
         $jabatan = request('jabatan');
         $search = request('search');
+        $sumberdana = request('sumberdana');
+
+        if ($sumberdana === 'LS') return $this->indexLs($jabatan, $search);
 
         $query = Pembayaran::query()
             ->leftJoin('tagihan_h as t', 't.notagihan', '=', 'pembayaran.notagihan')
@@ -42,6 +50,7 @@ class PembayaranController extends Controller
             ->when($jabatan, function ($q) use ($jabatan) {
                 $q->where('pembayaran.jabatan', $jabatan);
             })
+            ->when($sumberdana, fn ($q) => $q->where('t.sumberdana', $sumberdana))
 
             // 🔥 SEARCH
             ->when($search, function ($q) use ($search) {
@@ -65,6 +74,7 @@ class PembayaranController extends Controller
     {
         $jabatan = request('jabatan');
         $tglpembayaran = request('tglpembayaran');
+        $sumberdana = request('sumberdana');
 
         $pembayaran = Pembayaran::query()
             ->leftJoin('tagihan_h as t', 't.notagihan', '=', 'pembayaran.notagihan')
@@ -93,6 +103,7 @@ class PembayaranController extends Controller
             )
             ->where('pembayaran.flag', '2')
             ->where('pembayaran.jabatan', $jabatan)
+            ->when($sumberdana, fn ($q) => $q->where('t.sumberdana', $sumberdana))
             ->where('pembayaran.tgl', '<=', $tglpembayaran)
             ->whereNull('g.nogu');
 
@@ -164,6 +175,7 @@ class PembayaranController extends Controller
 
     public function simpan(Request $request)
     {
+        if ($request->boolean('ls')) return $this->simpanLs($request);
         $notrans = $request->notrans ?? null;
         $validated =  $request->validate([
             'notagihan' => 'required',
@@ -285,6 +297,7 @@ class PembayaranController extends Controller
 
     public function hapus(Request $request)
     {
+        if ($request->boolean('ls')) return $this->hapusLs($request);
         $validated = $request->validate([
             'id' => 'required',
             'nopembayaran' => 'required'
@@ -366,5 +379,45 @@ class PembayaranController extends Controller
             ->get();
 
         return $data;
+    }
+
+    private function indexLs($jabatan, $search): JsonResponse
+    {
+        $query=PembayaranLs::query()->leftJoin('tagihan_ls_h as t','t.notagihan','=','pembayaran_ls.notagihan')->with(['rinci.akun','penyedia','unit','jabatan'])->select('pembayaran_ls.*','t.tgl as tgl_tagihan','t.kegiatan as kegiatan_tagihan','t.jumlahbelanja as total_belanja','t.diskon as total_diskon','t.pajak as total_pajak','t.jumlahditagihkan as total_tagihan')->where('pembayaran_ls.jabatan',$jabatan)->when($search,fn($q)=>$q->where(fn($s)=>$s->where('pembayaran_ls.nopembayaran','like',"%{$search}%")->orWhere('pembayaran_ls.notagihan','like',"%{$search}%")))->orderByDesc('pembayaran_ls.created_at');
+        return response()->json($query->simplePaginate(request('per_page',10)));
+    }
+
+    private function simpanLs(Request $request): JsonResponse
+    {
+        $data=$request->validate(['notagihan'=>'required','penyedia'=>'required','jabatan'=>'required','unit'=>'required','sisapembayaran'=>'required|numeric','jumlahpembayaran'=>'required|numeric|gt:0']);
+        try {
+            DB::transaction(function () use (&$nomor,$request,$data) {
+                if ($data['jumlahpembayaran']>$data['sisapembayaran']) throw new \Exception('Jumlah pembayaran melebihi sisa tagihan');
+                $nomor=$request->notrans;
+                if (!$nomor) {
+                    $counter=DB::table('counter')->lockForUpdate()->firstOrFail();
+                    DB::table('counter')->where('id',$counter->id)->increment('pembayaranpengeluaranyayasan');
+                    $no=DB::table('counter')->where('id',$counter->id)->value('pembayaranpengeluaranyayasan');
+                    $nomor=FormatingHelper::pembayaran($no,'PK');
+                }
+                if (PembayaranLs::where('notagihan',$data['notagihan'])->where('flag','1')->where('nopembayaran','<>',$nomor)->exists()) throw new \Exception('Tagihan LS ini masih menunggu verifikasi');
+                PembayaranLs::updateOrCreate(['nopembayaran'=>$nomor],['tgl'=>date('Y-m-d'),'notagihan'=>$data['notagihan'],'penyedia'=>$data['penyedia'],'jabatan'=>$data['jabatan'],'unit'=>$data['unit'],'sisapembayaran'=>$data['sisapembayaran'],'nominal'=>$data['jumlahpembayaran'],'flag'=>'1','user'=>Auth::user()->kode]);
+            });
+            return response()->json(['data'=>$this->getLs($nomor),'message'=>'Pembayaran LS berhasil diajukan']);
+        } catch (\Throwable $e) { return response()->json(['message'=>'Gagal menyimpan data: '.$e->getMessage()],422); }
+    }
+
+    private function hapusLs(Request $request): JsonResponse
+    {
+        $data=$request->validate(['id'=>'required','nopembayaran'=>'required']);
+        $item=PembayaranLs::where('id',$data['id'])->where('nopembayaran',$data['nopembayaran'])->first();
+        if (!$item) return response()->json(['message'=>'Data tidak ditemukan'],404);
+        if ($item->flag !== '1') return response()->json(['message'=>'Pembayaran LS sudah diverifikasi'],422);
+        $item->delete(); return response()->json(['data'=>$item,'message'=>'Pembayaran LS berhasil dihapus']);
+    }
+
+    private function getLs(string $nomor)
+    {
+        return PembayaranLs::query()->leftJoin('tagihan_ls_h as t','t.notagihan','=','pembayaran_ls.notagihan')->with(['rinci.akun','penyedia','unit','jabatan'])->where('pembayaran_ls.nopembayaran',$nomor)->select('pembayaran_ls.*','t.tgl as tgl_tagihan','t.kegiatan as kegiatan_tagihan','t.jumlahbelanja as total_belanja','t.diskon as total_diskon','t.pajak as total_pajak','t.jumlahditagihkan as total_tagihan')->get();
     }
 }

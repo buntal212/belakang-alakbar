@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\SaldoController;
 use App\Http\Controllers\Controller;
 use App\Models\Master\Saldo;
 use App\Models\Pembayaran\Pembayaran;
+use App\Models\Pembayaran\PembayaranLs;
 use Auth;
 use DB;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +17,7 @@ class VerivikasiPembayaranController extends Controller
 {
     public function index()
     {
+        if (request('sumberdana') === 'LS') return $this->indexLs();
         $jabatan = request('jabatan');
         $search = request('search');
         $statusverif = request('statusverif');
@@ -75,13 +77,15 @@ class VerivikasiPembayaranController extends Controller
         $jabatan = $request->jabatan_flag;
         $alasan = $request->alasan;
 
-        $data = Pembayaran::find($id);
+        $data = $request->boolean('ls') ? PembayaranLs::find($id) : Pembayaran::find($id);
+        if (!$data) return response()->json(['message' => 'Data pembayaran tidak ditemukan'], 404);
         $data->tgl_verif= date('Y-m-d H:i:s');
         $data->user_verif = $user->kode;
         $data->flag = '3';
         $data->alasan = $request->alasan;
         $data->save();
-        $result = self::nopembayaranBuid($id);
+        $result = $data->fresh(['rinci.akun', 'penyedia', 'unit', 'jabatan']);
+        if ($request->boolean('ls')) $result->setAttribute('asal', 'LS');
         return new JsonResponse(
             [
                 'status' => 'OK',
@@ -131,6 +135,22 @@ class VerivikasiPembayaranController extends Controller
             $pemilik = $request->pemilik;
             $unit = $request->unit;
 
+            $terimaLs = $request->boolean('ls') ? PembayaranLs::find($id) : null;
+            $pembayaranLs = $terimaLs !== null || Pembayaran::query()
+                ->join('tagihan_h as t', 't.notagihan', '=', 'pembayaran.notagihan')
+                ->where('pembayaran.id', $id)
+                ->where('t.sumberdana', 'LS')
+                ->exists();
+
+            // LS dibayar langsung dari rekening Bendahara Penerimaan Yayasan.
+            // Saldo Bendahara Pengeluaran hanya tercatat pada laporan transaksi.
+            if ($pembayaranLs) {
+                $pemilik = 'J000003';
+                $jenispembayaran = 'Bank';
+                $request->merge(['jenispembayaran' => '1']);
+                $unit = 'Bendahara Penerimaan Yayasan';
+            }
+
             $ceksaldo = Saldo::where('pemilik', $pemilik)
                 ->where('jenis', $jenispembayaran)
                 ->value('nominal');
@@ -147,7 +167,7 @@ class VerivikasiPembayaranController extends Controller
                 ], 500);
             }
 
-            $terima = Pembayaran::findOrFail($id);
+            $terima = $terimaLs ?: Pembayaran::findOrFail($id);
             $terima->flag = '2';
             $terima->tgl_verif = now();
             $terima->user_verif = $user->kode;
@@ -157,9 +177,12 @@ class VerivikasiPembayaranController extends Controller
             // Saldo::where('pemilik', $pemilik)
             //     ->where('jenis', $jenispembayaran)
             //     ->decrement('nominal', $nominal);
-            SaldoController::saldo($pemilik,$request->jenispembayaran,$nominal);
+            SaldoController::saldo($pemilik, $request->jenispembayaran, $nominal);
             DB::commit();
-            $result = self::nopembayaranBuid($id);
+            // Kembalikan relasi lengkap agar kartu di frontend langsung memiliki
+            // nama unit dan jabatan tanpa harus menunggu refresh halaman.
+            $result = $terima->fresh(['rinci.akun', 'penyedia', 'unit', 'jabatan']);
+            if ($pembayaranLs) $result->setAttribute('asal', 'LS');
             return new JsonResponse([
                 'message' => 'Data Tersimpan...!!',
                 'data' => $result,
@@ -174,5 +197,12 @@ class VerivikasiPembayaranController extends Controller
                 'message' => $e->getMessage()
             ], 500);
         }
+    }
+
+    private function indexLs(): JsonResponse
+    {
+        $jabatan=request('jabatan'); $search=request('search'); $status=request('statusverif');
+        $query=PembayaranLs::query()->leftJoin('tagihan_ls_h as t','t.notagihan','=','pembayaran_ls.notagihan')->with(['rinci.akun','penyedia','unit','jabatan'])->select('pembayaran_ls.*','t.tgl as tgl_tagihan','t.kegiatan as kegiatan_tagihan','t.jumlahbelanja as total_belanja','t.diskon as total_diskon','t.pajak as total_pajak','t.jumlahditagihkan as total_tagihan', DB::raw("'LS' as asal"))->when($jabatan,fn($q)=>$q->where('pembayaran_ls.jabatan',$jabatan))->when($status!==null && $status!=='',fn($q)=>$q->where('pembayaran_ls.flag',$status))->when($search,fn($q)=>$q->where(fn($s)=>$s->where('pembayaran_ls.nopembayaran','like',"%{$search}%")->orWhere('pembayaran_ls.notagihan','like',"%{$search}%")))->orderByDesc('pembayaran_ls.created_at');
+        return response()->json($query->simplePaginate(request('per_page',10)));
     }
 }

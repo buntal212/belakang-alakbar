@@ -7,6 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Pembayaran\Pembayaran;
 use App\Models\Tagihan\Tagihanbelanjaheder;
 use App\Models\Tagihan\TagihanbelanjaRinci;
+use App\Models\Tagihan\TagihanLsHeder;
+use App\Models\Tagihan\TagihanLsRinci;
+use App\Models\Pembayaran\PembayaranLs;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,11 +17,23 @@ use Illuminate\Support\Facades\DB;
 
 class TagihanController extends Controller
 {
+    public function indexLsRoute(Request $request) { $request->merge(['sumberdana' => 'LS']); return $this->index(); }
+    public function indexallLsRoute(Request $request) { $request->merge(['sumberdana' => 'LS']); return $this->indexall(); }
+    public function storeHederLsRoute(Request $request) { $request->merge(['sumberdana' => 'LS']); return $this->storeheder($request); }
+    public function storeRinciLsRoute(Request $request) { $request->merge(['ls' => true]); return $this->storerinci($request); }
+    public function hapusRinciLsRoute(Request $request) { $request->merge(['ls' => true]); return $this->hapusrinci($request); }
+    public function hapusHederLsRoute(Request $request) { $request->merge(['ls' => true]); return $this->hapusheder($request); }
+
     public function index()
     {
         $jabatan = request('jabatan');
         $search = request('search');
         $status = request('status');
+        $sumberdana = request('sumberdana');
+
+        if ($sumberdana === 'LS') {
+            return $this->indexLs($jabatan, $search, $status);
+        }
 
         $pembayaran = Pembayaran::query()
             ->selectRaw(
@@ -47,6 +62,7 @@ class TagihanController extends Controller
                 'jabatan'
             ])
             ->where('tagihan_h.jabatan', $jabatan)
+            ->when($sumberdana, fn ($q) => $q->where('tagihan_h.sumberdana', $sumberdana))
             ->when($status === 'lunas', fn ($q) => $q->whereRaw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) >= tagihan_h.jumlahditagihkan'))
             ->when($status === 'proses', fn ($q) => $q->whereRaw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) > 0 AND COALESCE(rekap_pembayaran.sudah_dibayar, 0) < tagihan_h.jumlahditagihkan'))
             ->when($status === 'belum', fn ($q) => $q->whereRaw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) = 0'))
@@ -72,8 +88,31 @@ class TagihanController extends Controller
         return new JsonResponse($data);
     }
 
+    private function indexLs($jabatan, $search, $status): JsonResponse
+    {
+        $pembayaran = PembayaranLs::query()
+            ->selectRaw('notagihan, COALESCE(SUM(CASE WHEN flag = ? THEN nominal ELSE 0 END), 0) as sudah_dibayar', ['2'])
+            ->groupBy('notagihan');
+
+        $query = TagihanLsHeder::query()
+            ->select('tagihan_ls_h.*', DB::raw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) as sudah_dibayar'))
+            ->leftJoinSub($pembayaran, 'rekap_pembayaran', fn ($join) => $join->on('rekap_pembayaran.notagihan', '=', 'tagihan_ls_h.notagihan'))
+            ->with(['rinci.akun', 'penyedia', 'unit', 'jabatan'])
+            ->where('tagihan_ls_h.jabatan', $jabatan)
+            ->when($status === 'lunas', fn ($q) => $q->whereRaw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) >= tagihan_ls_h.jumlahditagihkan'))
+            ->when($status === 'proses', fn ($q) => $q->whereRaw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) > 0 AND COALESCE(rekap_pembayaran.sudah_dibayar, 0) < tagihan_ls_h.jumlahditagihkan'))
+            ->when($status === 'belum', fn ($q) => $q->whereRaw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) = 0'))
+            ->when($search, fn ($q) => $q->where(fn ($s) => $s->where('tagihan_ls_h.notagihan', 'like', "%{$search}%")->orWhere('tagihan_ls_h.kegiatan', 'like', "%{$search}%")))
+            ->orderByDesc('tagihan_ls_h.created_at');
+
+        return new JsonResponse($query->simplePaginate(request('per_page', 10)));
+    }
+
     public function storeheder(Request $request)
     {
+        if ($request->input('sumberdana') === 'LS') {
+            return $this->storeHederLs($request);
+        }
         $notrans = $request->notrans ?? null;
         $validated =  $request->validate([
             'tgl' => 'required',
@@ -106,7 +145,17 @@ class TagihanController extends Controller
                     throw new \Exception('Tagihan Ini sudah dibayar ');
                 }
                 if(!$notrans){
-                    if($validated['jabatan'] == 'J000004'){
+                    if ($validated['jabatan'] === 'J000004' && $validated['sumberdana'] === 'LS') {
+                        $counter = DB::table('counter')->lockForUpdate()->first();
+
+                        if (!$counter) {
+                            throw new \Exception('Counter Tagihan LS belum tersedia');
+                        }
+
+                        DB::table('counter')->where('id', $counter->id)->increment('tagihanlspengeluaranyayasan');
+                        $nomor = DB::table('counter')->where('id', $counter->id)->value('tagihanlspengeluaranyayasan');
+                        $notrans = FormatingHelper::tagihanLs($nomor);
+                    } else if($validated['jabatan'] == 'J000004'){
                         DB::select('call tagihanpengeluaranyayasan(@nomor)');
                         $nomor = DB::table('counter')->select('tagihanpengeluaranyayasan')->first();
                         $flag = 'PK';
@@ -173,6 +222,9 @@ class TagihanController extends Controller
 
     public function storerinci(Request $request)
     {
+        if ($request->boolean('ls')) {
+            return $this->storeRinciLs($request);
+        }
         $validated =  $request->validate([
             'notrans' => 'required',
             'akun' => 'required',
@@ -248,6 +300,9 @@ class TagihanController extends Controller
 
     public function hapusrinci(Request $request)
     {
+        if ($request->boolean('ls')) {
+            return $this->hapusRinciLs($request);
+        }
         DB::beginTransaction();
 
         try {
@@ -374,6 +429,11 @@ class TagihanController extends Controller
     public function indexall()
     {
         $jabatan = request('jabatan');
+        $sumberdana = request('sumberdana');
+
+        if ($sumberdana === 'LS') {
+            return $this->indexallLs($jabatan);
+        }
 
         $data = Tagihanbelanjaheder::query()
             ->with([
@@ -390,6 +450,7 @@ class TagihanController extends Controller
                 }
             ], 'nominal')
             ->where('jabatan', $jabatan)
+            ->when($sumberdana, fn ($q) => $q->where('sumberdana', $sumberdana))
             ->orderByDesc('created_at')
             ->get()
             ->map(function ($item) {
@@ -407,6 +468,9 @@ class TagihanController extends Controller
 
     public function hapusheder(Request $request)
     {
+        if ($request->boolean('ls')) {
+            return $this->hapusHederLs($request);
+        }
         DB::beginTransaction();
 
         try {
@@ -461,5 +525,87 @@ class TagihanController extends Controller
                 'line' => $e->getLine(),
             ], 500);
         }
+    }
+
+    private function storeHederLs(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'tgl' => 'required', 'jabatan' => 'required', 'unit' => 'required',
+            'kegiatan' => 'required', 'penyedia' => 'required', 'totalmentah' => 'required',
+            'diskon' => 'nullable', 'pajak' => 'nullable', 'total' => 'required',
+        ]);
+        try {
+            DB::transaction(function () use (&$notagihan, $request, $data) {
+                $notagihan = $request->notrans;
+                if ($notagihan && PembayaranLs::where('notagihan', $notagihan)->exists()) {
+                    throw new \Exception('Tagihan ini sudah diajukan untuk pembayaran');
+                }
+                if (!$notagihan) {
+                    $counter = DB::table('counter')->lockForUpdate()->first();
+                    if (!$counter) throw new \Exception('Counter Tagihan LS belum tersedia');
+                    DB::table('counter')->where('id', $counter->id)->increment('tagihanlspengeluaranyayasan');
+                    $notagihan = FormatingHelper::tagihanLs(DB::table('counter')->where('id', $counter->id)->value('tagihanlspengeluaranyayasan'));
+                }
+                TagihanLsHeder::updateOrCreate(['notagihan' => $notagihan], [
+                    'tgl' => $data['tgl'], 'jabatan' => $data['jabatan'], 'unit' => $data['unit'],
+                    'kegiatan' => $data['kegiatan'], 'penyedia' => $data['penyedia'],
+                    'jumlahbelanja' => $data['totalmentah'], 'diskon' => $data['diskon'] ?? 0,
+                    'pajak' => $data['pajak'] ?? 0, 'jumlahditagihkan' => $data['total'],
+                    'user' => Auth::user()->kode,
+                ]);
+                $this->totalLs($notagihan);
+            });
+            return response()->json(['data' => $this->getLs($notagihan), 'message' => 'Tagihan LS berhasil disimpan']);
+        } catch (\Throwable $e) { return response()->json(['message' => 'Gagal menyimpan data: '.$e->getMessage()], 422); }
+    }
+
+    private function storeRinciLs(Request $request): JsonResponse
+    {
+        $data = $request->validate(['notrans'=>'required','akun'=>'required','rincian'=>'required','qty'=>'required|numeric|gt:0','satuan'=>'required','harga'=>'required|numeric|gt:0','jumlah'=>'required|numeric|gt:0']);
+        try {
+            DB::transaction(function () use ($data) {
+                if (PembayaranLs::where('notagihan', $data['notrans'])->exists()) throw new \Exception('Tagihan ini sudah dibayar');
+                TagihanLsRinci::create(['notagihan'=>$data['notrans'],'akun'=>$data['akun'],'rincian'=>$data['rincian'],'qty'=>$data['qty'],'satuan'=>$data['satuan'],'harga'=>$data['harga'],'jumlah'=>$data['jumlah'],'user'=>Auth::user()->kode]);
+                $this->totalLs($data['notrans']);
+            });
+            return response()->json(['data'=>$this->getLs($data['notrans']),'message'=>'Rincian LS berhasil disimpan']);
+        } catch (\Throwable $e) { return response()->json(['message'=>'Gagal menyimpan data: '.$e->getMessage()],422); }
+    }
+
+    private function hapusRinciLs(Request $request): JsonResponse
+    {
+        $data = $request->validate(['id'=>'required','notagihan'=>'required']);
+        try {
+            DB::transaction(function () use ($data) {
+                if (PembayaranLs::where('notagihan',$data['notagihan'])->exists()) throw new \Exception('Tagihan ini sudah dibayar');
+                TagihanLsRinci::where('id',$data['id'])->where('notagihan',$data['notagihan'])->delete(); $this->totalLs($data['notagihan']);
+            });
+            return response()->json(['data'=>$this->getLs($data['notagihan']),'message'=>'Rincian LS berhasil dihapus']);
+        } catch (\Throwable $e) { return response()->json(['message'=>'Gagal menghapus data: '.$e->getMessage()],422); }
+    }
+
+    private function hapusHederLs(Request $request): JsonResponse
+    {
+        $data=$request->validate(['notagihan'=>'required']);
+        try {
+            DB::transaction(function () use ($data) {
+                if (PembayaranLs::where('notagihan',$data['notagihan'])->exists()) throw new \Exception('Tagihan ini sudah dibayar');
+                TagihanLsRinci::where('notagihan',$data['notagihan'])->delete(); TagihanLsHeder::where('notagihan',$data['notagihan'])->delete();
+            });
+            return response()->json(['data'=>[],'message'=>'Tagihan LS berhasil dihapus']);
+        } catch (\Throwable $e) { return response()->json(['message'=>'Gagal menghapus data: '.$e->getMessage()],422); }
+    }
+
+    private function totalLs(string $notagihan): void
+    {
+        $header=TagihanLsHeder::where('notagihan',$notagihan)->firstOrFail(); $total=TagihanLsRinci::where('notagihan',$notagihan)->sum('jumlah');
+        $header->update(['jumlahbelanja'=>$total,'jumlahditagihkan'=>max(0,$total-($header->diskon ?? 0)+($header->pajak ?? 0))]);
+    }
+    private function getLs(string $notagihan) { return TagihanLsHeder::with(['rinci.akun','penyedia','unit','jabatan'])->where('notagihan',$notagihan)->get(); }
+    private function indexallLs(string $jabatan): JsonResponse
+    {
+        $paid=PembayaranLs::where('flag','2')->selectRaw('notagihan,SUM(nominal) nominal')->groupBy('notagihan');
+        $items=TagihanLsHeder::with(['rinci.akun','penyedia','unit','jabatan'])->leftJoinSub($paid,'paid',fn($j)=>$j->on('paid.notagihan','=','tagihan_ls_h.notagihan'))->where('tagihan_ls_h.jabatan',$jabatan)->select('tagihan_ls_h.*',DB::raw('COALESCE(paid.nominal,0) total_terbayar'))->get()->map(function($item){$item->sisa_bayar=$item->jumlahditagihkan-$item->total_terbayar;return $item;})->filter(fn($item)=>$item->sisa_bayar>0)->values();
+        return response()->json($items);
     }
 }

@@ -10,8 +10,6 @@ services:
         container_name: api-alakbar-app
         working_dir: /var/www/
         restart: unless-stopped
-        # ports:
-        #     - "8002:8000" # Menghindari konflik port dengan Nginx
         environment:
             - COMPOSER_MEMORY_LIMIT=-1
         volumes:
@@ -19,35 +17,25 @@ services:
         networks:
             - alakbarnet
         depends_on:
-            # - db
             - redis
 
-    # db:
-    #     image: mysql/mysql-server:5.7
-    #     platform: linux/amd64
-    #     container_name: mysql_api-alakbar
-    #     restart: unless-stopped
-    #     environment:
-    #         MYSQL_DATABASE: ${DB_DATABASE:-local_laravel}
-    #         MYSQL_USER: ${DB_USERNAME:-local_developer}
-    #         MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
-    #         MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-secret}
-    #     ports:
-    #         - "3356:3306"
-    #     volumes:
-    #         - mysql_data:/var/lib/mysql
-    #         - ./docker-compose/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
-    #     networks:
-    #         - alakbarnet
-    #     healthcheck:
-    #         test:
-    #             [
-    #                 "CMD-SHELL",
-    #                 "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD}",
-    #             ]
-    #         interval: 10s
-    #         timeout: 5s
-    #         retries: 10
+    reverb:
+        image: api-alakbar-app
+        container_name: api-alakbar-reverb
+        restart: unless-stopped
+        working_dir: /var/www
+        command: php artisan reverb:start --host=0.0.0.0 --port=6001
+        volumes:
+            - ./:/var/www
+        env_file:
+            - .env
+        ports:
+            - "6001:6001"
+        depends_on:
+            - app
+            - redis
+        networks:
+            - alakbarnet
 
     nginx:
         image: nginx:alpine
@@ -55,7 +43,6 @@ services:
         restart: unless-stopped
         depends_on:
             - app
-
         ports:
             - "8196:80"
         volumes:
@@ -82,13 +69,13 @@ services:
             - alakbarnet
 
     scheduler:
-        image: api-alakbar-app # Pakai image dari app
+        image: api-alakbar-app
         container_name: api-alakbar-scheduler
         command: ["php", "artisan", "schedule:work"]
+        restart: unless-stopped
         depends_on:
             - app
             - redis
-            # - db
         volumes:
             - ./:/var/www
         env_file:
@@ -97,7 +84,6 @@ services:
             - alakbarnet
 
 volumes:
-    # mysql_data:
     redis_data:
 
 networks:

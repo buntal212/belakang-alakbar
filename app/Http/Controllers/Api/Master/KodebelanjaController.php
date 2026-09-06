@@ -43,6 +43,7 @@ class KodebelanjaController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'id' => 'nullable|integer',
             'kode' => 'required',
             'belanja' => 'required',
         ], [
@@ -53,12 +54,21 @@ class KodebelanjaController extends Controller
 
         try {
             DB::beginTransaction();
-                $data = Kodebelanja::updateOrCreate(
-                    [
-                        'kode' => $validated['kode']
-                    ],
-                    $validated
-                );
+                if (!empty($validated['id'])) {
+                    $data = Kodebelanja::findOrFail($validated['id']);
+                    if ($data->kode !== $validated['kode']) {
+                        throw new \Exception('Kode belanja tidak dapat diubah setelah dibuat');
+                    }
+                    $data->update(['belanja' => $validated['belanja']]);
+                } else {
+                    if (Kodebelanja::where('kode', $validated['kode'])->exists()) {
+                        throw new \Exception('Kode belanja sudah digunakan');
+                    }
+                    $data = Kodebelanja::create([
+                        'kode' => $validated['kode'],
+                        'belanja' => $validated['belanja'],
+                    ]);
+                }
             DB::commit();
                 return new JsonResponse([
                     'data' => $data,
@@ -74,6 +84,28 @@ class KodebelanjaController extends Controller
                     'trace' => $e->getTrace(),
 
                 ], 410);
+        }
+    }
+
+    public function destroy(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'id' => 'required|integer',
+        ]);
+
+        try {
+            $data = Kodebelanja::findOrFail($validated['id']);
+            $data->update(['flaging' => '1']);
+
+            return new JsonResponse([
+                'status' => 'OK',
+                'data' => $data,
+                'message' => 'Kode belanja berhasil dihapus',
+            ]);
+        } catch (\Throwable $e) {
+            return new JsonResponse([
+                'message' => 'Gagal menghapus kode belanja: ' . $e->getMessage(),
+            ], 422);
         }
     }
 }
