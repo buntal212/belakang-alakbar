@@ -47,6 +47,7 @@ class PenyediaController extends Controller
         $kode = $request->kode ?? null;
         $validated = $request->validate([
             'nama' => 'required',
+            'alamat' => 'nullable|string',
             'telepon' => 'required',
             'npwp' => 'required',
             'bentukusaha' => 'required',
@@ -80,6 +81,7 @@ class PenyediaController extends Controller
                     ],
                     [
                         'nama' => $validated['nama'],
+                        'alamat' => $validated['alamat'] ?? null,
                         'telepon' => $validated['telepon'],
                         'npwp' => $validated['npwp'],
                         'bentukusaha' => $validated['bentukusaha'],
@@ -121,5 +123,27 @@ class PenyediaController extends Controller
 
                 ], 410);
         }
+    }
+
+    public function destroy(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'id' => 'required|integer',
+        ]);
+
+        $penyedia = Penyedia::find($validated['id']);
+
+        if (! $penyedia) {
+            return new JsonResponse([
+                'message' => 'Data penyedia tidak ditemukan',
+            ], 404);
+        }
+
+        $penyedia->update(['flaging' => '1']);
+
+        return new JsonResponse([
+            'status' => 'OK',
+            'message' => 'Data penyedia berhasil disembunyikan',
+        ]);
     }
 }

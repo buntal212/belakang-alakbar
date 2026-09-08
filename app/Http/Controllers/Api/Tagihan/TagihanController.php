@@ -17,9 +17,9 @@ use Illuminate\Support\Facades\DB;
 
 class TagihanController extends Controller
 {
-    public function indexLsRoute(Request $request) { $request->merge(['sumberdana' => 'LS']); return $this->index(); }
-    public function indexallLsRoute(Request $request) { $request->merge(['sumberdana' => 'LS']); return $this->indexall(); }
-    public function storeHederLsRoute(Request $request) { $request->merge(['sumberdana' => 'LS']); return $this->storeheder($request); }
+    public function indexLsRoute(Request $request) { return $this->indexLs($request->input('jabatan'), $request->input('search'), $request->input('status')); }
+    public function indexallLsRoute(Request $request) { return $this->indexallLs($request->input('jabatan')); }
+    public function storeHederLsRoute(Request $request) { return $this->storeHederLs($request); }
     public function storeRinciLsRoute(Request $request) { $request->merge(['ls' => true]); return $this->storerinci($request); }
     public function hapusRinciLsRoute(Request $request) { $request->merge(['ls' => true]); return $this->hapusrinci($request); }
     public function hapusHederLsRoute(Request $request) { $request->merge(['ls' => true]); return $this->hapusheder($request); }
@@ -91,11 +91,20 @@ class TagihanController extends Controller
     private function indexLs($jabatan, $search, $status): JsonResponse
     {
         $pembayaran = PembayaranLs::query()
-            ->selectRaw('notagihan, COALESCE(SUM(CASE WHEN flag = ? THEN nominal ELSE 0 END), 0) as sudah_dibayar', ['2'])
+            ->selectRaw(
+                'notagihan,
+                MAX(nopembayaran) as nopembayaran,
+                COALESCE(SUM(CASE WHEN flag = ? THEN nominal ELSE 0 END), 0) as sudah_dibayar',
+                ['2']
+            )
             ->groupBy('notagihan');
 
         $query = TagihanLsHeder::query()
-            ->select('tagihan_ls_h.*', DB::raw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) as sudah_dibayar'))
+            ->select(
+                'tagihan_ls_h.*',
+                'rekap_pembayaran.nopembayaran',
+                DB::raw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) as sudah_dibayar')
+            )
             ->leftJoinSub($pembayaran, 'rekap_pembayaran', fn ($join) => $join->on('rekap_pembayaran.notagihan', '=', 'tagihan_ls_h.notagihan'))
             ->with(['rinci.akun', 'penyedia', 'unit', 'jabatan'])
             ->where('tagihan_ls_h.jabatan', $jabatan)
@@ -532,7 +541,7 @@ class TagihanController extends Controller
         $data = $request->validate([
             'tgl' => 'required', 'jabatan' => 'required', 'unit' => 'required',
             'kegiatan' => 'required', 'penyedia' => 'required', 'totalmentah' => 'required',
-            'diskon' => 'nullable', 'pajak' => 'nullable', 'total' => 'required',
+            'diskon' => 'nullable', 'pajak' => 'nullable', 'total' => 'required', 'sumberdana' => 'required',
         ]);
         try {
             DB::transaction(function () use (&$notagihan, $request, $data) {
@@ -549,6 +558,7 @@ class TagihanController extends Controller
                 TagihanLsHeder::updateOrCreate(['notagihan' => $notagihan], [
                     'tgl' => $data['tgl'], 'jabatan' => $data['jabatan'], 'unit' => $data['unit'],
                     'kegiatan' => $data['kegiatan'], 'penyedia' => $data['penyedia'],
+                    'sumberdana' => $data['sumberdana'],
                     'jumlahbelanja' => $data['totalmentah'], 'diskon' => $data['diskon'] ?? 0,
                     'pajak' => $data['pajak'] ?? 0, 'jumlahditagihkan' => $data['total'],
                     'user' => Auth::user()->kode,
