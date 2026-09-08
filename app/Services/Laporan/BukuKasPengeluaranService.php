@@ -29,10 +29,11 @@ class BukuKasPengeluaranService
         $saldoAkhirPerJenis = $tanggalOpnameAkhir
             ? DB::table('saldo_stok_opname')->where('pemilik', $jabatan)->whereDate('tanggal_opname', $tanggalOpnameAkhir)->pluck('nominal', 'jenis')
             : collect();
+        $saldoSampaiBulanIni = (float) $saldoAkhirPerJenis->sum();
         $periode = $mutasi->filter(fn ($x) => $x['tanggal'] >= $mulai && $x['tanggal'] <= $selesai)->sortBy([['tanggal', 'asc'], ['prioritas', 'asc'], ['urutan', 'asc']])->values();
         $saldo = $saldoAwal;
         $transaksi = $periode->map(function ($x) use (&$saldo) { $saldo += $x['penerimaan'] - $x['pengeluaran']; $x['saldo'] = $saldo; return $x; });
-        return ['periode'=>['tanggal_mulai'=>$mulai,'tanggal_selesai'=>$selesai], 'tanggal_saldo_awal'=>$tanggalOpname, 'tanggal_saldo_akhir'=>$tanggalOpnameAkhir, 'saldo_awal_rincian'=>$saldoAwalRincian->map(fn ($item) => ['jenis' => $item->jenis, 'nominal' => (float) $item->nominal])->values(), 'saldo_awal'=>$saldoAwal, 'transaksi'=>$transaksi, 'total_penerimaan'=>$periode->sum('penerimaan'), 'total_pengeluaran'=>$periode->sum('pengeluaran'), 'saldo_bulan'=>$periode->sum('penerimaan')-$periode->sum('pengeluaran'), 'saldo_akhir'=>$saldo, 'saldo_awal_tunai'=>(float)($saldoAwalPerJenis['Tunai']??0), 'saldo_awal_bank'=>(float)($saldoAwalPerJenis['Bank']??0), 'saldo_awal_panjar'=>(float)($saldoAwalPerJenis['Panjar']??0), 'saldo_akhir_tunai'=>(float)($saldoAkhirPerJenis['Tunai']??0), 'saldo_akhir_bank'=>(float)($saldoAkhirPerJenis['Bank']??0), 'saldo_akhir_panjar'=>(float)($saldoAkhirPerJenis['Panjar']??0)];
+        return ['periode'=>['tanggal_mulai'=>$mulai,'tanggal_selesai'=>$selesai], 'tanggal_saldo_awal'=>$tanggalOpname, 'tanggal_saldo_akhir'=>$tanggalOpnameAkhir, 'saldo_awal_rincian'=>$saldoAwalRincian->map(fn ($item) => ['jenis' => $item->jenis, 'nominal' => (float) $item->nominal])->values(), 'saldo_awal'=>$saldoAwal, 'transaksi'=>$transaksi, 'total_penerimaan'=>$periode->sum('penerimaan'), 'total_pengeluaran'=>$periode->sum('pengeluaran'), 'saldo_bulan'=>$periode->sum('penerimaan')-$periode->sum('pengeluaran'), 'saldo_akhir'=>$saldo, 'saldo_sampai_bulan_ini'=>$saldoSampaiBulanIni, 'saldo_awal_tunai'=>(float)($saldoAwalPerJenis['Tunai']??0), 'saldo_awal_bank'=>(float)($saldoAwalPerJenis['Bank']??0), 'saldo_awal_panjar'=>(float)($saldoAwalPerJenis['Panjar']??0), 'saldo_akhir_tunai'=>(float)($saldoAkhirPerJenis['Tunai']??0), 'saldo_akhir_bank'=>(float)($saldoAkhirPerJenis['Bank']??0), 'saldo_akhir_panjar'=>(float)($saldoAkhirPerJenis['Panjar']??0)];
     }
 
     private function mutasi(string $jabatan): Collection
@@ -46,6 +47,7 @@ class BukuKasPengeluaranService
             $keterangan = $namaPenyedia ? 'Pembayaran tagihan ke '.$namaPenyedia : 'Pembayaran tagihan';
             $rows->push($this->row($x->tgl,$x->nopembayaran,$keterangan,0,$x->nominal,$x->id));
         }
+        foreach (DB::table('gu_h')->where('jabatan', $jabatan)->where('flag', '3')->whereNotNull('tgl_verif_ben_penerimaan')->get() as $x) $rows->push($this->row($x->tgl_verif_ben_penerimaan,$x->nogu,'Penerimaan Uang GU',$x->nominal,0,$x->id));
         foreach (DB::table('pembayaran_ls')->where('jabatan',$jabatan)->where('flag','2')->get() as $x) $rows->push($this->row($x->tgl,$x->nopembayaran,'Pembayaran LS',0,$x->nominal,$x->id));
         foreach (DB::table('pengajuan_up')->where('jabatan',$jabatan)->whereNotNull('tgl_terima')->get() as $x) $rows->push($this->row($x->tgl_terima,$x->no_pengajuan,'Penerimaan UP',$x->nilai_pengajuan,0,$x->id));
         foreach (DB::table('panjar')->where('jabatan',$jabatan)->get() as $x) $rows->push($this->row($x->tgl,$x->notrans,'Pergeseran Tunai ke Panjar',$x->jumlahpanjar,$x->jumlahpanjar,$x->id));

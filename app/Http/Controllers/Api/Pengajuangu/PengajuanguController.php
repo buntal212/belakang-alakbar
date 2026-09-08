@@ -561,6 +561,7 @@ class PengajuanguController extends Controller
                 $user = Auth::user();
                 $verif = PengajuanguHeder::where('nogu', $validated['no_pengajuan'])->first();
                 $verif->flag = '4';
+                $verif->dari = $validated['dari'];
                 $verif->tgl_selesai = date('Y-m-d');
                 $verif->user_selesai = $user->kode;
                 $verif->save();

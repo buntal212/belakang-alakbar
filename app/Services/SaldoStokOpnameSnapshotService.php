@@ -31,6 +31,9 @@ class SaldoStokOpnameSnapshotService
         foreach (DB::table('pengajuan_up')->whereNotNull('tgl_terima')->whereBetween('tgl_terima', [$mulai, $selesai])->get(['jabatan', 'nilai_pengajuan']) as $item) {
             $tambahSaldo($item->jabatan, 'Bank', (float) $item->nilai_pengajuan);
         }
+        foreach (DB::table('gu_h')->where('flag', '3')->whereBetween('tgl_verif_ben_penerimaan', [$mulai, $selesai])->get(['jabatan', 'nominal']) as $item) {
+            $tambahSaldo($item->jabatan, 'Bank', (float) $item->nominal);
+        }
         foreach (DB::table('pembayaran')->where('flag', '2')->whereBetween('tgl', [$mulai, $selesai])->get(['jabatan', 'jenispembayaran', 'nominal']) as $item) {
             $jenis = $item->jenispembayaran === '1' ? 'Bank' : 'Tunai';
             $tambahSaldo($item->jabatan, $jenis, -(float) $item->nominal);
