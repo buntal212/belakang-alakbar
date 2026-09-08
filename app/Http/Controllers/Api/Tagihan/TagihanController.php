@@ -59,7 +59,8 @@ class TagihanController extends Controller
                 },
                 'penyedia',
                 'unit',
-                'jabatan'
+                'jabatan',
+                'sumberDana'
             ])
             ->where('tagihan_h.jabatan', $jabatan)
             ->when($sumberdana, fn ($q) => $q->where('tagihan_h.sumberdana', $sumberdana))
@@ -106,7 +107,7 @@ class TagihanController extends Controller
                 DB::raw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) as sudah_dibayar')
             )
             ->leftJoinSub($pembayaran, 'rekap_pembayaran', fn ($join) => $join->on('rekap_pembayaran.notagihan', '=', 'tagihan_ls_h.notagihan'))
-            ->with(['rinci.akun', 'penyedia', 'unit', 'jabatan'])
+            ->with(['rinci.akun', 'penyedia', 'unit', 'jabatan', 'sumberDana'])
             ->where('tagihan_ls_h.jabatan', $jabatan)
             ->when($status === 'lunas', fn ($q) => $q->whereRaw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) >= tagihan_ls_h.jumlahditagihkan'))
             ->when($status === 'proses', fn ($q) => $q->whereRaw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) > 0 AND COALESCE(rekap_pembayaran.sudah_dibayar, 0) < tagihan_ls_h.jumlahditagihkan'))

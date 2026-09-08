@@ -38,26 +38,49 @@ class LaporanPengeluaranController extends Controller
     {
         $data = $request->validate([
             'tanggal_mulai' => 'required|date', 'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai',
-            'jabatan' => 'required', 'penyedia' => 'nullable', 'sumberdana' => 'nullable', 'jenis_pembayaran' => 'nullable',
+            'jabatan' => 'required', 'penyedia' => 'nullable', 'sumberdana' => 'nullable', 'kodebelanja' => 'nullable|string', 'jenis_pembayaran' => 'nullable',
         ]);
 
         $regular = Pembayaran::query()->with(['rinci.akun', 'penyedia', 'unit', 'jabatan'])
             ->leftJoin('tagihan_h as tagihan', 'tagihan.notagihan', '=', 'pembayaran.notagihan')
-            ->leftJoin('m_sumberdana as sumber_dana', 'sumber_dana.kode', '=', 'tagihan.sumberdana')
+            ->leftJoin('m_sumberdana as sumber_dana', function ($join) {
+                $join->on(
+                    \DB::raw('sumber_dana.kode COLLATE utf8mb4_unicode_ci'),
+                    '=',
+                    \DB::raw('tagihan.sumberdana COLLATE utf8mb4_unicode_ci')
+                );
+            })
             ->select('pembayaran.*', 'tagihan.kegiatan as kegiatan', 'tagihan.sumberdana', 'sumber_dana.kegiatan as nama_sumberdana')
             ->where('pembayaran.flag', '2')->where('pembayaran.jabatan', $data['jabatan'])
             ->whereBetween('pembayaran.tgl', [$data['tanggal_mulai'], $data['tanggal_selesai']])
             ->when($data['penyedia'] ?? null, fn ($q, $v) => $q->where('pembayaran.penyedia', $v))
             ->when($data['sumberdana'] ?? null, fn ($q, $v) => $q->where('tagihan.sumberdana', $v))
+            ->when($data['kodebelanja'] ?? null, fn ($q, $v) => $q->whereHas('rinci', fn ($r) => $r->where('akun', $v)))
             ->when($data['jenis_pembayaran'] ?? null, fn ($q, $v) => $q->where('pembayaran.jenispembayaran', $v))->get();
 
         $ls = PembayaranLs::query()->with(['rinci.akun', 'penyedia', 'unit', 'jabatan'])
-            ->leftJoin('tagihan_ls_h as tagihan', 'tagihan.notagihan', '=', 'pembayaran_ls.notagihan')
-            ->select('pembayaran_ls.*', 'tagihan.kegiatan as kegiatan')
+            ->leftJoin('tagihan_ls_h as tagihan', function ($join) {
+                $join->on(
+                    \DB::raw('tagihan.notagihan COLLATE utf8mb4_unicode_ci'),
+                    '=',
+                    \DB::raw('pembayaran_ls.notagihan COLLATE utf8mb4_unicode_ci')
+                );
+            })
+            ->leftJoin('m_sumberdana as sumber_dana', function ($join) {
+                $join->on(
+                    \DB::raw('sumber_dana.kode COLLATE utf8mb4_unicode_ci'),
+                    '=',
+                    \DB::raw('tagihan.sumberdana COLLATE utf8mb4_unicode_ci')
+                );
+            })
+            ->select('pembayaran_ls.*', 'tagihan.kegiatan as kegiatan', 'tagihan.sumberdana', 'sumber_dana.kegiatan as nama_sumberdana', \DB::raw("'2' as jenispembayaran"))
             ->where('pembayaran_ls.flag', '2')->where('pembayaran_ls.jabatan', $data['jabatan'])
             ->whereBetween('pembayaran_ls.tgl', [$data['tanggal_mulai'], $data['tanggal_selesai']])
             ->when($data['penyedia'] ?? null, fn ($q, $v) => $q->where('pembayaran_ls.penyedia', $v))
-            ->when($data['jenis_pembayaran'] ?? null, fn ($q, $v) => $q->where('pembayaran_ls.jenispembayaran', $v))->get();
+            ->when($data['sumberdana'] ?? null, fn ($q, $v) => $q->where('tagihan.sumberdana', $v))
+            ->when($data['kodebelanja'] ?? null, fn ($q, $v) => $q->whereHas('rinci', fn ($r) => $r->where('akun', $v)))
+            // Pembayaran LS selalu non-tunai dan tidak memiliki kolom jenispembayaran.
+            ->when(($data['jenis_pembayaran'] ?? null) === '1', fn ($q) => $q->whereRaw('1 = 0'))->get();
 
         $items = $regular->toBase()->map(fn ($item) => $this->format($item, 'Reguler'))
             ->merge($ls->toBase()->map(fn ($item) => $this->format($item, 'LS')))->sortByDesc('tgl')->values();
@@ -72,7 +95,7 @@ class LaporanPengeluaranController extends Controller
         $jabatan = $item->getRelation('jabatan');
 
         return ['id' => $asal.'-'.$item->id, 'asal' => $asal, 'tgl' => $item->tgl, 'no_spj' => $item->nopembayaran,
-            'no_tagihan' => $item->notagihan, 'sumberdana' => $asal === 'LS' ? 'LS' : ($item->nama_sumberdana ?: '-'), 'kegiatan' => $item->kegiatan,
+            'no_tagihan' => $item->notagihan, 'sumberdana' => $item->nama_sumberdana ?: '-', 'kegiatan' => $item->kegiatan,
             'penyedia' => $penyedia?->nama ?: '-', 'jenis_pembayaran' => $item->jenispembayaran === '1' ? 'Tunai' : 'Non Tunai',
             'nominal' => (float) $item->nominal, 'unit' => $unit?->nama_unit, 'bendahara' => $jabatan?->jabatan,
             'rincian' => $item->rinci->map(fn ($r) => ['akun' => $r->getRelation('akun')?->belanja ?: '-', 'uraian' => $r->rincian, 'qty' => $r->qty, 'satuan' => $r->satuan, 'harga' => (float) $r->harga, 'jumlah' => (float) $r->jumlah])->values()];

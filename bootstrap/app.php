@@ -12,6 +12,14 @@ return Application::configure(basePath: dirname(__DIR__))
         channels: __DIR__.'/../routes/channels.php',
         health: '/up',
     )
+    ->withCommands([
+        __DIR__.'/../app/Console/Commands',
+    ])
+    ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
+        $schedule->command('saldo:stok-opname')
+            ->monthlyOn(1, '00:05')
+            ->withoutOverlapping();
+    })
     ->withMiddleware(function (Middleware $middleware): void {
         //
     })

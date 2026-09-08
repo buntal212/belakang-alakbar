@@ -4,6 +4,7 @@ namespace App\Models\Tagihan;
 
 use App\Models\Master\Jabatan;
 use App\Models\Master\Penyedia;
+use App\Models\Master\Sumberdana;
 use App\Models\Master\Unit;
 use App\Models\Pembayaran\Pembayaran;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -33,6 +34,11 @@ class Tagihanbelanjaheder extends Model
     public function jabatan()
     {
          return $this->hasOne(Jabatan::class, 'kode', 'jabatan');
+    }
+
+    public function sumberDana()
+    {
+         return $this->hasOne(Sumberdana::class, 'kode', 'sumberdana');
     }
     public function pembayaran()
     {
