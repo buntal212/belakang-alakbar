@@ -37,7 +37,10 @@ class SpjPanjarController extends Controller
             $query->where(function ($searchQuery) use ($search) {
                 $searchQuery->where('spjpanjar_h.nospjpanjar', 'like', "%{$search}%")
                     ->orWhere('spjpanjar_h.nopanjar', 'like', "%{$search}%")
-                    ->orWhere('spjpanjar_h.kegiatan', 'like', "%{$search}%");
+                    ->orWhere('spjpanjar_h.kegiatan', 'like', "%{$search}%")
+                    ->orWhereHas('penyedia', function ($penyediaQuery) use ($search) {
+                        $penyediaQuery->where('nama', 'like', "%{$search}%");
+                    });
             });
         })
         ->orderBy('spjpanjar_h.created_at','desc');

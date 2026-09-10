@@ -20,18 +20,22 @@ class LaporanPengeluaranController extends Controller
         $regular = \DB::table('tagihan_h as t')->leftJoin('m_penyedia as p', function ($join) {
             $join->on(\DB::raw('p.kode COLLATE utf8mb4_unicode_ci'), '=', \DB::raw('t.penyedia COLLATE utf8mb4_unicode_ci'));
         })
-            ->where('t.jabatan', $data['jabatan'])->whereBetween('t.tgl', [$data['tanggal_mulai'], $data['tanggal_selesai']])->get()->map(function ($tagihan) {
+            ->where('t.jabatan', $data['jabatan'])->whereBetween('t.tgl', [$data['tanggal_mulai'], $data['tanggal_selesai']])->orderBy('t.tgl')->orderBy('t.created_at')->get()->map(function ($tagihan) {
                 $bayar = \DB::table('pembayaran')->where('notagihan', $tagihan->notagihan)->where('flag', '2')->orderBy('tgl')->get(['tgl', 'nopembayaran', 'nominal']);
                 $terbayar = $bayar->sum('nominal'); $tagihan->penyedia_nama = $tagihan->nama ?? '-'; $tagihan->pembayaran = $bayar; $tagihan->sisa_utang = max(0, $tagihan->jumlahditagihkan - $terbayar); return $tagihan;
             })->filter(fn ($tagihan) => $tagihan->sisa_utang > 0);
         $ls = \DB::table('tagihan_ls_h as t')->leftJoin('m_penyedia as p', function ($join) {
             $join->on(\DB::raw('p.kode COLLATE utf8mb4_unicode_ci'), '=', \DB::raw('t.penyedia COLLATE utf8mb4_unicode_ci'));
         })
-            ->where('t.jabatan', $data['jabatan'])->whereBetween('t.tgl', [$data['tanggal_mulai'], $data['tanggal_selesai']])->get()->map(function ($tagihan) {
+            ->where('t.jabatan', $data['jabatan'])->whereBetween('t.tgl', [$data['tanggal_mulai'], $data['tanggal_selesai']])->orderBy('t.tgl')->orderBy('t.created_at')->get()->map(function ($tagihan) {
                 $bayar = \DB::table('pembayaran_ls')->where('notagihan', $tagihan->notagihan)->where('flag', '2')->orderBy('tgl')->get(['tgl', 'nopembayaran', 'nominal']);
                 $terbayar = $bayar->sum('nominal'); $tagihan->penyedia_nama = $tagihan->nama ?? '-'; $tagihan->pembayaran = $bayar; $tagihan->sisa_utang = max(0, $tagihan->jumlahditagihkan - $terbayar); return $tagihan;
             })->filter(fn ($tagihan) => $tagihan->sisa_utang > 0);
-        $items = $regular->concat($ls)->groupBy('penyedia_nama')->map(fn ($tagihan, $penyedia) => ['penyedia' => $penyedia, 'tagihan' => $tagihan->values(), 'total' => $tagihan->sum('sisa_utang')])->values();
+        $items = $regular->concat($ls)
+            ->sortBy([['tgl', 'asc'], ['created_at', 'asc']])
+            ->groupBy('penyedia_nama')
+            ->map(fn ($tagihan, $penyedia) => ['penyedia' => $penyedia, 'tagihan' => $tagihan->values(), 'total' => $tagihan->sum('sisa_utang')])
+            ->values();
         return response()->json(['data' => $items, 'meta' => ['total_utang' => $items->sum('total')]]);
     }
     public function pengeluaran(Request $request)
@@ -73,14 +77,14 @@ class LaporanPengeluaranController extends Controller
                     \DB::raw('tagihan.sumberdana COLLATE utf8mb4_unicode_ci')
                 );
             })
-            ->select('pembayaran_ls.*', 'tagihan.kegiatan as kegiatan', 'tagihan.sumberdana', 'sumber_dana.kegiatan as nama_sumberdana', \DB::raw("'2' as jenispembayaran"))
+            ->select('pembayaran_ls.*', 'tagihan.kegiatan as kegiatan', 'tagihan.sumberdana', 'sumber_dana.kegiatan as nama_sumberdana', \DB::raw("'1' as jenispembayaran"))
             ->where('pembayaran_ls.flag', '2')->where('pembayaran_ls.jabatan', $data['jabatan'])
             ->whereBetween('pembayaran_ls.tgl', [$data['tanggal_mulai'], $data['tanggal_selesai']])
             ->when($data['penyedia'] ?? null, fn ($q, $v) => $q->where('pembayaran_ls.penyedia', $v))
             ->when($data['sumberdana'] ?? null, fn ($q, $v) => $q->where('tagihan.sumberdana', $v))
             ->when($data['kodebelanja'] ?? null, fn ($q, $v) => $q->whereHas('rinci', fn ($r) => $r->where('akun', $v)))
             // Pembayaran LS selalu non-tunai dan tidak memiliki kolom jenispembayaran.
-            ->when(($data['jenis_pembayaran'] ?? null) === '1', fn ($q) => $q->whereRaw('1 = 0'))->get();
+            ->when(($data['jenis_pembayaran'] ?? null) === '2', fn ($q) => $q->whereRaw('1 = 0'))->get();
 
         $items = $regular->toBase()->map(fn ($item) => $this->format($item, 'Reguler'))
             ->merge($ls->toBase()->map(fn ($item) => $this->format($item, 'LS')))->sortByDesc('tgl')->values();
@@ -96,7 +100,7 @@ class LaporanPengeluaranController extends Controller
 
         return ['id' => $asal.'-'.$item->id, 'asal' => $asal, 'tgl' => $item->tgl, 'no_spj' => $item->nopembayaran,
             'no_tagihan' => $item->notagihan, 'sumberdana' => $item->nama_sumberdana ?: '-', 'kegiatan' => $item->kegiatan,
-            'penyedia' => $penyedia?->nama ?: '-', 'jenis_pembayaran' => $item->jenispembayaran === '1' ? 'Tunai' : 'Non Tunai',
+            'penyedia' => $penyedia?->nama ?: '-', 'jenis_pembayaran' => $item->jenispembayaran === '1' ? 'Non Tunai' : 'Tunai',
             'nominal' => (float) $item->nominal, 'unit' => $unit?->nama_unit, 'bendahara' => $jabatan?->jabatan,
             'rincian' => $item->rinci->map(fn ($r) => ['akun' => $r->getRelation('akun')?->belanja ?: '-', 'uraian' => $r->rincian, 'qty' => $r->qty, 'satuan' => $r->satuan, 'harga' => (float) $r->harga, 'jumlah' => (float) $r->jumlah])->values()];
     }

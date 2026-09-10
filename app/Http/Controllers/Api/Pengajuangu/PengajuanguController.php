@@ -23,7 +23,7 @@ class PengajuanguController extends Controller
 
         $query = PengajuanguHeder::query()
             ->with([
-                'rinci.pembayaran.rinci',
+                'rinci.pembayaran.rinci.akun',
                 'rinci.penyedia',
                 'rinci.penerimaUser',
                 'unit',
@@ -455,7 +455,7 @@ class PengajuanguController extends Controller
     {
         $data = PengajuanguHeder::query()
             ->with([
-                'rinci.pembayaran.rinci',
+                'rinci.pembayaran.rinci.akun',
                 'rinci.penyedia',
                 'rinci.penerimaUser',
                 'unit',
@@ -479,7 +479,7 @@ class PengajuanguController extends Controller
 
         $query = PengajuanguHeder::query()
             ->with([
-                'rinci.pembayaran.rinci',
+                'rinci.pembayaran.rinci.akun',
                 'rinci.penyedia',
                 'rinci.penerimaUser',
                 'unit',

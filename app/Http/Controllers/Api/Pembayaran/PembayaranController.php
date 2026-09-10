@@ -396,9 +396,9 @@ class PembayaranController extends Controller
                 $nomor=$request->notrans;
                 if (!$nomor) {
                     $counter=DB::table('counter')->lockForUpdate()->firstOrFail();
-                    DB::table('counter')->where('id',$counter->id)->increment('pembayaranpengeluaranyayasan');
-                    $no=DB::table('counter')->where('id',$counter->id)->value('pembayaranpengeluaranyayasan');
-                    $nomor=FormatingHelper::pembayaran($no,'PK');
+                    DB::table('counter')->where('id',$counter->id)->increment('pembayaranlspengeluaranyayasan');
+                    $no=DB::table('counter')->where('id',$counter->id)->value('pembayaranlspengeluaranyayasan');
+                    $nomor=FormatingHelper::pembayaranLs($no,'PK');
                 }
                 if (PembayaranLs::where('notagihan',$data['notagihan'])->where('flag','1')->where('nopembayaran','<>',$nomor)->exists()) throw new \Exception('Tagihan LS ini masih menunggu verifikasi');
                 PembayaranLs::updateOrCreate(['nopembayaran'=>$nomor],['tgl'=>date('Y-m-d'),'notagihan'=>$data['notagihan'],'penyedia'=>$data['penyedia'],'jabatan'=>$data['jabatan'],'unit'=>$data['unit'],'sisapembayaran'=>$data['sisapembayaran'],'nominal'=>$data['jumlahpembayaran'],'flag'=>'1','user'=>Auth::user()->kode]);

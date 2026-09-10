@@ -48,6 +48,13 @@ class FormatingHelper
         return $hasil . '/PB-' . $entitas . '/' . $semester . '/' .  date("Y");
     }
 
+    public static function pembayaranLs($n, $entitas)
+    {
+        $semester = 01;
+        $hasil = str_pad($n, 6, '0', STR_PAD_LEFT);
+        return $hasil . '/PBLS-' . $entitas . '/' . $semester . '/' . date("Y");
+    }
+
     public static function nogu($n, $entitas)
     {
         $semester = 01;

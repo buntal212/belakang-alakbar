@@ -375,7 +375,8 @@ class TagihanController extends Controller
                 },
                 'penyedia',
                 'unit',
-                'jabatan'
+                'jabatan',
+                'sumberDana'
             ]
         )
         ->where('notagihan', $notrans)->get();
@@ -612,7 +613,7 @@ class TagihanController extends Controller
         $header=TagihanLsHeder::where('notagihan',$notagihan)->firstOrFail(); $total=TagihanLsRinci::where('notagihan',$notagihan)->sum('jumlah');
         $header->update(['jumlahbelanja'=>$total,'jumlahditagihkan'=>max(0,$total-($header->diskon ?? 0)+($header->pajak ?? 0))]);
     }
-    private function getLs(string $notagihan) { return TagihanLsHeder::with(['rinci.akun','penyedia','unit','jabatan'])->where('notagihan',$notagihan)->get(); }
+    private function getLs(string $notagihan) { return TagihanLsHeder::with(['rinci.akun','penyedia','unit','jabatan','sumberDana'])->where('notagihan',$notagihan)->get(); }
     private function indexallLs(string $jabatan): JsonResponse
     {
         $paid=PembayaranLs::where('flag','2')->selectRaw('notagihan,SUM(nominal) nominal')->groupBy('notagihan');
