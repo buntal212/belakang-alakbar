@@ -110,6 +110,7 @@ class PembayaranController extends Controller
         $pengembalianSisaPanjar = DB::table('pengembaliansisapanjar as p')
             ->leftJoin('gu_r as g', 'g.nospj', '=', 'p.notrans')
             ->leftJoin('panjar as pj', 'pj.notrans', '=', 'p.nopanjar')
+            ->leftJoin('spjpanjar_h as spj', 'spj.nopanjar', '=', 'p.nopanjar')
             ->leftJoin('users as u', function ($join) {
                 $join->on(
                     DB::raw('u.kode COLLATE utf8mb4_unicode_ci'),
@@ -121,7 +122,7 @@ class PembayaranController extends Controller
                 "p.id,
                 p.notrans as nopembayaran,
                 p.tgl,
-                p.nopanjar as notagihan,
+                spj.nospjpanjar as notagihan,
                 NULL as penyedia,
                 '2' as jenispembayaran,
                 p.jabatan,
