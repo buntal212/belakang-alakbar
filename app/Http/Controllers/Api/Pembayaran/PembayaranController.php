@@ -139,7 +139,7 @@ class PembayaranController extends Controller
                 p.created_at,
                 NULL as updated_at,
                 NULL as tagihan_id,
-                p.tgl as tgl_tagihan,
+                spj.tglspjpanjar as tgl_tagihan,
                 spj.kegiatan as kegiatan_tagihan,
                 NULL as kode_penyedia,
                 p.unit as kode_unit,
