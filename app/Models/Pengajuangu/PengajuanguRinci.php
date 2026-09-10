@@ -5,6 +5,7 @@ namespace App\Models\Pengajuangu;
 use App\Models\Master\Kodebelanja;
 use App\Models\Master\Penyedia;
 use App\Models\Pembayaran\Pembayaran;
+use App\Models\SpjPanjar\spjpanjar_heder;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -28,6 +29,11 @@ class PengajuanguRinci extends Model
     public function pembayaran()
     {
         return $this->hasOne(Pembayaran::class, 'nopembayaran', 'nospj');
+    }
+
+    public function spjPanjar()
+    {
+        return $this->hasOne(spjpanjar_heder::class, 'nospjpanjar', 'nospj');
     }
 
     public function penyedia()

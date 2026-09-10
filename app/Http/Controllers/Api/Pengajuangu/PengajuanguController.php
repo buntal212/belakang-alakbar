@@ -24,6 +24,7 @@ class PengajuanguController extends Controller
         $query = PengajuanguHeder::query()
             ->with([
                 'rinci.pembayaran.rinci.akun',
+                'rinci.spjPanjar.rinci.akun',
                 'rinci.penyedia',
                 'rinci.penerimaUser',
                 'unit',
@@ -261,7 +262,7 @@ class PengajuanguController extends Controller
                     $nominalPembayaran = DB::table('pengembaliansisapanjar as p')
                         ->join('spjpanjar_h as spj', 'spj.nopanjar', '=', 'p.nopanjar')
                         ->where('spj.nospjpanjar', $item['nopembayaran'])
-                        ->value('p.totalpembayaran');
+                        ->value('spj.jumlahpembayaran');
                 } else {
                     $nominalPembayaran = Pembayaran::where(
                         'nopembayaran',
@@ -457,6 +458,7 @@ class PengajuanguController extends Controller
         $data = PengajuanguHeder::query()
             ->with([
                 'rinci.pembayaran.rinci.akun',
+                'rinci.spjPanjar.rinci.akun',
                 'rinci.penyedia',
                 'rinci.penerimaUser',
                 'unit',
@@ -481,6 +483,7 @@ class PengajuanguController extends Controller
         $query = PengajuanguHeder::query()
             ->with([
                 'rinci.pembayaran.rinci.akun',
+                'rinci.spjPanjar.rinci.akun',
                 'rinci.penyedia',
                 'rinci.penerimaUser',
                 'unit',

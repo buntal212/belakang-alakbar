@@ -109,9 +109,9 @@ class PembayaranController extends Controller
             ->whereNull('g.nogu');
 
         $pengembalianSisaPanjar = DB::table('pengembaliansisapanjar as p')
-            ->leftJoin('gu_r as g', 'g.nospj', '=', 'p.notrans')
             ->leftJoin('panjar as pj', 'pj.notrans', '=', 'p.nopanjar')
-            ->leftJoin('spjpanjar_h as spj', 'spj.nopanjar', '=', 'p.nopanjar')
+            ->join('spjpanjar_h as spj', 'spj.nopanjar', '=', 'p.nopanjar')
+            ->leftJoin('gu_r as g', 'g.nospj', '=', 'spj.nospjpanjar')
             ->leftJoin('users as u', function ($join) {
                 $join->on(
                     DB::raw('u.kode COLLATE utf8mb4_unicode_ci'),
@@ -131,7 +131,7 @@ class PembayaranController extends Controller
                 p.userentry as user,
                 p.totalpanjar as saldo,
                 0 as sisapembayaran,
-                p.sisapanjar as nominal,
+                spj.jumlahpembayaran as nominal,
                 '2' as flag,
                 NULL as tgl_verif,
                 NULL as user_verif,
@@ -144,10 +144,10 @@ class PembayaranController extends Controller
                 NULL as kode_penyedia,
                 p.unit as kode_unit,
                 p.jabatan as kode_jabatan,
-                p.totalpembayaran as total_belanja,
+                spj.jumlahpembayaran as total_belanja,
                 0 as total_diskon,
                 0 as total_pajak,
-                p.sisapanjar as total_tagihan,
+                spj.jumlahpembayaran as total_tagihan,
                 CONVERT(pj.ditujukanke USING utf8mb4)
                     COLLATE utf8mb4_unicode_ci as kode_penerima,
                 CONVERT(COALESCE(u.name, pj.ditujukanke, '-') USING utf8mb4)
@@ -156,7 +156,6 @@ class PembayaranController extends Controller
         )
             ->where('p.jabatan', $jabatan)
             ->where('p.tgl', '<=', $tglpembayaran)
-            ->whereNotNull('spj.nospjpanjar')
             ->whereNull('g.nogu');
 
         $data = DB::query()
