@@ -258,9 +258,10 @@ class PengajuanguController extends Controller
                 $jenisBelanja = $item['jenisbelanja'];
 
                 if ($jenisBelanja === 'PANJAR') {
-                    $nominalPembayaran = DB::table('pengembaliansisapanjar')
-                        ->where('notrans', $item['nopembayaran'])
-                        ->value('totalpembayaran');
+                    $nominalPembayaran = DB::table('pengembaliansisapanjar as p')
+                        ->join('spjpanjar_h as spj', 'spj.nopanjar', '=', 'p.nopanjar')
+                        ->where('spj.nospjpanjar', $item['nopembayaran'])
+                        ->value('p.totalpembayaran');
                 } else {
                     $nominalPembayaran = Pembayaran::where(
                         'nopembayaran',
