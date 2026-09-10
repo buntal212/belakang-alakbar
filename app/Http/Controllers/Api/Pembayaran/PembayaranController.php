@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\SaldoController;
 use App\Http\Controllers\Controller;
 use App\Models\Pembayaran\Pembayaran;
 use App\Models\Pembayaran\PembayaranLs;
+use App\Models\SpjPanjar\spjpanjar_rinci;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -120,9 +121,9 @@ class PembayaranController extends Controller
             })
             ->selectRaw(
                 "p.id,
-                p.notrans as nopembayaran,
+                spj.nospjpanjar as nopembayaran,
                 p.tgl,
-                spj.nospjpanjar as notagihan,
+                p.nopanjar as notagihan,
                 NULL as penyedia,
                 '2' as jenispembayaran,
                 p.jabatan,
@@ -139,7 +140,7 @@ class PembayaranController extends Controller
                 NULL as updated_at,
                 NULL as tagihan_id,
                 p.tgl as tgl_tagihan,
-                'Pengembalian Sisa Panjar' as kegiatan_tagihan,
+                spj.kegiatan as kegiatan_tagihan,
                 NULL as kode_penyedia,
                 p.unit as kode_unit,
                 p.jabatan as kode_jabatan,
@@ -152,9 +153,10 @@ class PembayaranController extends Controller
                 CONVERT(COALESCE(u.name, pj.ditujukanke, '-') USING utf8mb4)
                     COLLATE utf8mb4_unicode_ci as diberikan_kepada,
                 'PANJAR' as asal"
-            )
+        )
             ->where('p.jabatan', $jabatan)
             ->where('p.tgl', '<=', $tglpembayaran)
+            ->whereNotNull('spj.nospjpanjar')
             ->whereNull('g.nogu');
 
         $data = DB::query()
@@ -170,6 +172,28 @@ class PembayaranController extends Controller
             'unit',
             'jabatan'
         ]);
+
+        $nomorSpjPanjar = $query
+            ->where('asal', 'PANJAR')
+            ->pluck('nopembayaran')
+            ->filter();
+
+        if ($nomorSpjPanjar->isNotEmpty()) {
+            $rincianPanjar = spjpanjar_rinci::query()
+                ->with('akun')
+                ->whereIn('nospjpanjar', $nomorSpjPanjar)
+                ->get()
+                ->groupBy('nospjpanjar');
+
+            $query
+                ->where('asal', 'PANJAR')
+                ->each(function ($item) use ($rincianPanjar) {
+                    $item->setRelation(
+                        'rinci',
+                        $rincianPanjar->get($item->nopembayaran, collect())
+                    );
+                });
+        }
 
         return new JsonResponse($query);
     }
