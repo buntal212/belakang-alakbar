@@ -53,9 +53,9 @@ class PenyediaController extends Controller
             'bentukusaha' => 'required',
             'bidangusaha' => 'required',
             'pimpinan' => 'required',
-            'nomor_rekening' => 'required',
-            'bank' => 'required',
-            'atas_nama' => 'required'
+            'nomor_rekening' => 'nullable|string',
+            'bank' => 'nullable|string',
+            'atas_nama' => 'nullable|string'
         ], [
 
             'nama.required' => 'Nama harus di isi',
@@ -90,14 +90,16 @@ class PenyediaController extends Controller
                     ]
                 );
 
-                $queryx = Bank::updateOrCreate(
-                    [
-                        'kode_penyedia' => $kode,
-                        'nama_bank' => $validated['bank'],
-                        'norek' => $validated['nomor_rekening'],
-                        'atasnama' => $validated['atas_nama']
-                    ]
-                );
+                if (!empty($validated['bank']) && !empty($validated['nomor_rekening']) && !empty($validated['atas_nama'])) {
+                    Bank::updateOrCreate(
+                        [
+                            'kode_penyedia' => $kode,
+                            'nama_bank' => $validated['bank'],
+                            'norek' => $validated['nomor_rekening'],
+                            'atasnama' => $validated['atas_nama']
+                        ]
+                    );
+                }
             DB::commit();
                 $data = Penyedia::with(
                         [
