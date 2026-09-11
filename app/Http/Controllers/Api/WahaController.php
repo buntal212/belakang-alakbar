@@ -40,6 +40,9 @@ class WahaController extends Controller
                 $session = $this->waha->session();
             }
 
+            $this->waha->syncWebhook();
+            $session = $this->waha->session();
+
             if (in_array($session['status'] ?? 'STOPPED', ['STOPPED', 'FAILED'], true)) {
                 $this->waha->start();
             }

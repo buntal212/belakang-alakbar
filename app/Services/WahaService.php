@@ -12,12 +12,14 @@ class WahaService
     private string $url;
     private string $apiKey;
     private string $session;
+    private string $webhookUrl;
 
     public function __construct()
     {
         $this->url = rtrim((string) config('services.waha.url'), '/');
         $this->apiKey = (string) config('services.waha.api_key');
         $this->session = (string) config('services.waha.session', 'alakbar');
+        $this->webhookUrl = (string) config('services.waha.webhook_url');
     }
 
     public function sessionName(): string
@@ -49,7 +51,53 @@ class WahaService
 
     public function createSession(): array
     {
-        return $this->json($this->request()->post('/api/sessions', ['name' => $this->session]));
+        return $this->json(
+            $this->request()->post('/api/sessions', [
+                'name' => $this->session,
+                'config' => [
+                    'webhooks' => [
+                        [
+                            'url' => $this->webhookUrl,
+                            'events' => ['message'],
+                        ],
+                    ],
+                ],
+            ])
+        );
+    }
+
+    public function syncWebhook(): array
+    {
+        if ($this->webhookUrl === '') {
+            throw new RuntimeException('URL webhook WAHA belum dikonfigurasi.');
+        }
+
+        $session = $this->session();
+
+        if (!$session) {
+            throw new RuntimeException('Session WhatsApp belum dibuat.');
+        }
+
+        $config = is_array($session['config'] ?? null)
+            ? $session['config']
+            : [];
+
+        $config['webhooks'] = [
+            [
+                'url' => $this->webhookUrl,
+                'events' => ['message'],
+            ],
+        ];
+
+        return $this->json(
+            $this->request()->put(
+                "/api/sessions/{$this->session}",
+                [
+                    'name' => $this->session,
+                    'config' => $config,
+                ]
+            )
+        );
     }
 
     public function start(): array
