@@ -47,9 +47,30 @@ class BukuKasPengeluaranService
             $keterangan = $namaPenyedia ? 'Pembayaran tagihan ke '.$namaPenyedia : 'Pembayaran tagihan';
             $rows->push($this->row($x->tgl,$x->nopembayaran,$keterangan,0,$x->nominal,$x->id));
         }
-        foreach (DB::table('gu_h')->where('jabatan', $jabatan)->where('flag', '3')->whereNotNull('tgl_verif_ben_penerimaan')->get() as $x) $rows->push($this->row($x->tgl_verif_ben_penerimaan,$x->nogu,'Penerimaan Uang GU',$x->nominal,0,$x->id));
+        if ($jabatan === 'J000004') {
+            foreach (DB::table('gu_h')->where('jabatan', $jabatan)->where('flag', '3')->whereNotNull('tgl_verif_ben_penerimaan')->get() as $x) $rows->push($this->row($x->tgl_verif_ben_penerimaan,$x->nogu,'Penerimaan Uang GU',$x->nominal,0,$x->id));
+        } else {
+            foreach (DB::table('gu_h')->where('jabatan', $jabatan)->where('dari', 'J000004')->where('flag', '4')->whereNotNull('tgl_selesai')->get() as $x) $rows->push($this->row($x->tgl_selesai,$x->nogu,'Penerimaan Uang GU',$x->nominal,0,$x->id));
+        }
         foreach (DB::table('pembayaran_ls')->where('jabatan',$jabatan)->where('flag','2')->get() as $x) $rows->push($this->row($x->tgl,$x->nopembayaran,'Pembayaran LS',0,$x->nominal,$x->id));
         foreach (DB::table('pengajuan_up')->where('jabatan',$jabatan)->whereNotNull('tgl_terima')->get() as $x) $rows->push($this->row($x->tgl_terima,$x->no_pengajuan,'Penerimaan UP',$x->nilai_pengajuan,0,$x->id));
+        if ($jabatan === 'J000004') {
+            $unit = DB::table('unit')->pluck('nama_unit', 'kode');
+
+            foreach (DB::table('pengajuan_up')->where('jabatan', '!=', $jabatan)->whereNotNull('tgl_terima')->get() as $x) {
+                $namaUnit = $unit->get($x->unit);
+                $keterangan = $namaUnit ? 'Penyaluran UP ke '.$namaUnit : 'Penyaluran UP ke Unit';
+
+                $rows->push($this->row($x->tgl_terima, $x->no_pengajuan, $keterangan, 0, $x->nilai_pengajuan, $x->id));
+            }
+
+            foreach (DB::table('gu_h')->where('dari', $jabatan)->where('flag', '4')->whereNotNull('tgl_selesai')->get() as $x) {
+                $namaUnit = $unit->get($x->unit);
+                $keterangan = $namaUnit ? 'Penyaluran GU ke '.$namaUnit : 'Penyaluran GU ke Unit';
+
+                $rows->push($this->row($x->tgl_selesai, $x->nogu, $keterangan, 0, $x->nominal, $x->id));
+            }
+        }
         foreach (DB::table('panjar')->where('jabatan',$jabatan)->get() as $x) $rows->push($this->row($x->tgl,$x->notrans,'Pergeseran Tunai ke Panjar',$x->jumlahpanjar,$x->jumlahpanjar,$x->id));
         foreach (DB::table('pergeserankas')->where('jabatan',$jabatan)->get() as $x) $rows->push($this->row($x->tgl,$x->no_pergeseran,$x->jenis==='1'?'Pergeseran Bank ke Tunai':'Pergeseran Tunai ke Bank',$x->nominal,$x->nominal,$x->id));
         foreach (DB::table('pengembaliansisapanjar')->where('jabatan',$jabatan)->get() as $x) {
