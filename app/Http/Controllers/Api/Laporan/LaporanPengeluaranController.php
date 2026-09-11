@@ -22,14 +22,14 @@ class LaporanPengeluaranController extends Controller
         })
             ->where('t.jabatan', $data['jabatan'])->whereBetween('t.tgl', [$data['tanggal_mulai'], $data['tanggal_selesai']])->orderBy('t.tgl')->orderBy('t.created_at')->get()->map(function ($tagihan) {
                 $bayar = \DB::table('pembayaran')->where('notagihan', $tagihan->notagihan)->where('flag', '2')->orderBy('tgl')->get(['tgl', 'nopembayaran', 'nominal']);
-                $terbayar = $bayar->sum('nominal'); $tagihan->penyedia_nama = $tagihan->nama ?? '-'; $tagihan->pembayaran = $bayar; $tagihan->sisa_utang = max(0, $tagihan->jumlahditagihkan - $terbayar); return $tagihan;
+                $terbayar = $bayar->sum('nominal'); $tagihan->penyedia_nama = $tagihan->nama ?? '-'; $tagihan->rincian_belanja = \DB::table('tagihan_r')->where('notagihan', $tagihan->notagihan)->orderBy('id')->pluck('rincian'); $tagihan->pembayaran = $bayar; $tagihan->sisa_utang = max(0, $tagihan->jumlahditagihkan - $terbayar); return $tagihan;
             })->filter(fn ($tagihan) => $tagihan->sisa_utang > 0);
         $ls = \DB::table('tagihan_ls_h as t')->leftJoin('m_penyedia as p', function ($join) {
             $join->on(\DB::raw('p.kode COLLATE utf8mb4_unicode_ci'), '=', \DB::raw('t.penyedia COLLATE utf8mb4_unicode_ci'));
         })
             ->where('t.jabatan', $data['jabatan'])->whereBetween('t.tgl', [$data['tanggal_mulai'], $data['tanggal_selesai']])->orderBy('t.tgl')->orderBy('t.created_at')->get()->map(function ($tagihan) {
                 $bayar = \DB::table('pembayaran_ls')->where('notagihan', $tagihan->notagihan)->where('flag', '2')->orderBy('tgl')->get(['tgl', 'nopembayaran', 'nominal']);
-                $terbayar = $bayar->sum('nominal'); $tagihan->penyedia_nama = $tagihan->nama ?? '-'; $tagihan->pembayaran = $bayar; $tagihan->sisa_utang = max(0, $tagihan->jumlahditagihkan - $terbayar); return $tagihan;
+                $terbayar = $bayar->sum('nominal'); $tagihan->penyedia_nama = $tagihan->nama ?? '-'; $tagihan->rincian_belanja = \DB::table('tagihan_ls_r')->where('notagihan', $tagihan->notagihan)->orderBy('id')->pluck('rincian'); $tagihan->pembayaran = $bayar; $tagihan->sisa_utang = max(0, $tagihan->jumlahditagihkan - $terbayar); return $tagihan;
             })->filter(fn ($tagihan) => $tagihan->sisa_utang > 0);
         $items = $regular->concat($ls)
             ->sortBy([['tgl', 'asc'], ['created_at', 'asc']])
