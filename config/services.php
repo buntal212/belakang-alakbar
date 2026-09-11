@@ -39,6 +39,10 @@ return [
         'url' => env('WAHA_URL'),
         'api_key' => env('WAHA_API_KEY'),
         'session' => env('WAHA_SESSION', 'alakbar'),
+        'webhook_url' => env(
+            'WAHA_WEBHOOK_URL',
+            env('APP_URL').'/api/v1/waha/webhook'
+        ),
     ],
 
 ];
