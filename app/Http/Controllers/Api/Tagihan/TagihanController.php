@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 
 class TagihanController extends Controller
 {
-    public function indexLsRoute(Request $request) { return $this->indexLs($request->input('jabatan'), $request->input('search'), $request->input('status')); }
+    public function indexLsRoute(Request $request) { return $this->indexLs($request->input('jabatan'), $request->input('search'), $request->input('status'), $request->input('dateFrom'), $request->input('dateTo')); }
     public function indexallLsRoute(Request $request) { return $this->indexallLs($request->input('jabatan')); }
     public function storeHederLsRoute(Request $request) { return $this->storeHederLs($request); }
     public function storeRinciLsRoute(Request $request) { $request->merge(['ls' => true]); return $this->storerinci($request); }
@@ -30,9 +30,11 @@ class TagihanController extends Controller
         $search = request('search');
         $status = request('status');
         $sumberdana = request('sumberdana');
+        $dateFrom = request('dateFrom');
+        $dateTo = request('dateTo');
 
         if ($sumberdana === 'LS') {
-            return $this->indexLs($jabatan, $search, $status);
+            return $this->indexLs($jabatan, $search, $status, $dateFrom, $dateTo);
         }
 
         $pembayaran = Pembayaran::query()
@@ -64,6 +66,7 @@ class TagihanController extends Controller
             ])
             ->where('tagihan_h.jabatan', $jabatan)
             ->when($sumberdana, fn ($q) => $q->where('tagihan_h.sumberdana', $sumberdana))
+            ->when($dateFrom && $dateTo, fn ($q) => $q->whereBetween('tagihan_h.tgl', [$dateFrom, $dateTo]))
             ->when($status === 'lunas', fn ($q) => $q->whereRaw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) >= tagihan_h.jumlahditagihkan'))
             ->when($status === 'proses', fn ($q) => $q->whereRaw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) > 0 AND COALESCE(rekap_pembayaran.sudah_dibayar, 0) < tagihan_h.jumlahditagihkan'))
             ->when($status === 'belum', fn ($q) => $q->whereRaw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) = 0'))
@@ -89,7 +92,7 @@ class TagihanController extends Controller
         return new JsonResponse($data);
     }
 
-    private function indexLs($jabatan, $search, $status): JsonResponse
+    private function indexLs($jabatan, $search, $status, $dateFrom = null, $dateTo = null): JsonResponse
     {
         $pembayaran = PembayaranLs::query()
             ->selectRaw(
@@ -109,6 +112,7 @@ class TagihanController extends Controller
             ->leftJoinSub($pembayaran, 'rekap_pembayaran', fn ($join) => $join->on('rekap_pembayaran.notagihan', '=', 'tagihan_ls_h.notagihan'))
             ->with(['rinci.akun', 'penyedia', 'unit', 'jabatan', 'sumberDana'])
             ->where('tagihan_ls_h.jabatan', $jabatan)
+            ->when($dateFrom && $dateTo, fn ($q) => $q->whereBetween('tagihan_ls_h.tgl', [$dateFrom, $dateTo]))
             ->when($status === 'lunas', fn ($q) => $q->whereRaw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) >= tagihan_ls_h.jumlahditagihkan'))
             ->when($status === 'proses', fn ($q) => $q->whereRaw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) > 0 AND COALESCE(rekap_pembayaran.sudah_dibayar, 0) < tagihan_ls_h.jumlahditagihkan'))
             ->when($status === 'belum', fn ($q) => $q->whereRaw('COALESCE(rekap_pembayaran.sudah_dibayar, 0) = 0'))
