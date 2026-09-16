@@ -14,6 +14,12 @@ class LaporanPengeluaranController extends Controller
         $data=$request->validate(['tanggal_mulai'=>'required|date','tanggal_selesai'=>'required|date|after_or_equal:tanggal_mulai','jabatan'=>'required']);
         return response()->json(app(\App\Services\Laporan\BukuKasPengeluaranService::class)->generate($data['jabatan'],$data['tanggal_mulai'],$data['tanggal_selesai']));
     }
+    public function bukuKasPanjar(Request $request)
+    {
+        $data = $request->validate(['tanggal_mulai' => 'required|date', 'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai', 'jabatan' => 'required']);
+
+        return response()->json(app(\App\Services\Laporan\BukuKasPanjarService::class)->generate($data['jabatan'], $data['tanggal_mulai'], $data['tanggal_selesai']));
+    }
     public function utang(Request $request)
     {
         $data = $request->validate(['tanggal_mulai' => 'required|date', 'tanggal_selesai' => 'required|date', 'jabatan' => 'required']);

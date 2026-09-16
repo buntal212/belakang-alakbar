@@ -7,4 +7,5 @@ Route::middleware('auth:sanctum')->prefix('laporan')->group(function () {
     Route::get('/pengeluaran', [LaporanPengeluaranController::class, 'pengeluaran']);
     Route::get('/utang', [LaporanPengeluaranController::class, 'utang']);
     Route::get('/buku-kas', [LaporanPengeluaranController::class, 'bukuKas']);
+    Route::get('/buku-kas-panjar', [LaporanPengeluaranController::class, 'bukuKasPanjar']);
 });
