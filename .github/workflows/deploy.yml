@@ -1,4 +1,4 @@
-name: Build & Deploy Alakbar
+name: Build & Deploy Alakbar API
 
 on:
   push:
@@ -15,12 +15,12 @@ concurrency:
 
 jobs:
   build:
-    name: Build di GitHub
+    name: Build Laravel REST API
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
-      - name: Checkout source
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup PHP 8.3
@@ -44,68 +44,66 @@ jobs:
             --no-progress \
             --no-scripts
 
-      - name: Setup Node.js
-        if: hashFiles('package.json') != ''
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Build frontend assets
-        if: hashFiles('package-lock.json') != ''
+      - name: Verify Laravel files
         run: |
-          npm ci
-          if node -e "process.exit(require('./package.json').scripts?.build ? 0 : 1)"; then
-            npm run build
-          fi
+          test -f artisan
+          test -f vendor/autoload.php
+          test -f public/index.php
 
-      - name: Package Laravel
+      - name: Package Laravel API
         run: |
           tar -czf "$RUNNER_TEMP/alakbar.tar.gz" \
-            --exclude=.git \
-            --exclude=.github \
-            --exclude=.env \
-            --exclude='.env.*' \
-            --exclude=node_modules \
-            --exclude=tests \
-            --exclude=storage/logs \
-            --exclude=storage/framework \
-            --exclude=storage/app \
-            --exclude=bootstrap/cache \
-            --exclude=.user.ini \
+            --exclude='./.git' \
+            --exclude='./.github' \
+            --exclude='./.env' \
+            --exclude='./.env.*' \
+            --exclude='./node_modules' \
+            --exclude='./tests' \
+            --exclude='./resources/js' \
+            --exclude='./resources/css' \
+            --exclude='./public/build' \
+            --exclude='./storage/app' \
+            --exclude='./storage/logs' \
+            --exclude='./storage/framework' \
+            --exclude='./bootstrap/cache' \
+            --exclude='./.user.ini' \
             .
 
-      - name: Upload deployment artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: alakbar-production
+          name: alakbar-api
           path: ${{ runner.temp }}/alakbar.tar.gz
           retention-days: 1
           if-no-files-found: error
 
   deploy:
-    name: Deploy ke VPS sysbill
+    name: Deploy API to sysbill
     needs: build
+
     runs-on:
       - self-hosted
       - linux
       - x64
       - alakbar
       - production
+
     timeout-minutes: 15
 
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: alakbar-production
+          name: alakbar-api
           path: ${{ runner.temp }}/alakbar-download
 
-      - name: Deploy Laravel
+      - name: Deploy Laravel REST API
         shell: bash
         run: |
           set -Eeuo pipefail
 
           TARGET="/www/wwwroot/api.alakbar.or.id"
+          ARCHIVE="$RUNNER_TEMP/alakbar-download/alakbar.tar.gz"
           STAGING="$(mktemp -d "$RUNNER_TEMP/alakbar.XXXXXXXX")"
 
           cleanup() {
@@ -114,56 +112,65 @@ jobs:
           }
           trap cleanup EXIT
 
-          tar -xzf \
-            "$RUNNER_TEMP/alakbar-download/alakbar.tar.gz" \
-            -C "$STAGING"
+          echo "=== VALIDATE ARTIFACT ==="
+          test -f "$ARCHIVE"
+          test -d "$TARGET"
+          test -w "$TARGET"
+
+          echo "=== EXTRACT ARTIFACT ==="
+          tar -xzf "$ARCHIVE" -C "$STAGING"
 
           test -f "$STAGING/artisan"
           test -f "$STAGING/vendor/autoload.php"
           test -f "$STAGING/public/index.php"
-          test -d "$TARGET"
-          test -w "$TARGET"
 
+          echo "=== PREPARE RUNTIME DIRECTORIES ==="
           mkdir -p \
             "$TARGET/storage/app" \
-            "$TARGET/storage/framework/cache" \
+            "$TARGET/storage/framework/cache/data" \
             "$TARGET/storage/framework/sessions" \
             "$TARGET/storage/framework/views" \
             "$TARGET/storage/logs" \
             "$TARGET/bootstrap/cache"
 
+          echo "=== SYNC DEPLOYMENT ==="
           rsync -rlt --delete \
+            --no-perms \
+            --no-owner \
+            --no-group \
             --exclude='/.env' \
             --exclude='/.env.*' \
             --exclude='/.user.ini' \
             --exclude='/.well-known/' \
             --exclude='/404.html' \
             --exclude='/502.html' \
+            --exclude='/index.html' \
+            --exclude='/.htaccess' \
             --exclude='/storage/' \
             --exclude='/bootstrap/cache/' \
-            --exclude='/public/storage' \
             --exclude='/public/storage/' \
             --exclude='/public/.user.ini' \
             --exclude='/public/.well-known/' \
             --exclude='/.git/' \
             --exclude='/.github/' \
-            --exclude='/index.html' \
-            --exclude='/.htaccess' \
-            --no-perms --no-owner --no-group \
             "$STAGING/" "$TARGET/"
 
-          echo "Deployment files synchronized."
-
-      - name: Verify deployment
-        shell: bash
-        run: |
-          set -e
-          TARGET="/www/wwwroot/api.alakbar.or.id"
-
+          echo "=== VERIFY DEPLOYMENT ==="
           test -f "$TARGET/artisan"
           test -f "$TARGET/vendor/autoload.php"
           test -f "$TARGET/public/index.php"
 
-          echo "Laravel deployment completed."
-          echo "Server: $(hostname)"
+          echo "Deployment files completed successfully."
+          echo "Host: $(hostname)"
           echo "Target: $TARGET"
+
+      - name: Deployment summary
+        shell: bash
+        run: |
+          echo "### Alakbar REST API Deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Server: sysbill" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target: /www/wwwroot/api.alakbar.or.id" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Build: GitHub-hosted runner" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Composer on VPS: No" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Frontend build: No" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Database migration: No" >> "$GITHUB_STEP_SUMMARY"
