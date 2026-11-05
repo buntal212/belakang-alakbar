@@ -134,7 +134,7 @@ jobs:
             "$TARGET/bootstrap/cache"
 
           echo "=== SYNC DEPLOYMENT ==="
-          rsync -rlt --delete \
+          rsync -rl --delete \
             --no-perms \
             --no-owner \
             --no-group \
