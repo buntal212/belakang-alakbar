@@ -1,0 +1,169 @@
+name: Build & Deploy Alakbar
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alakbar-production
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build di GitHub
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, xml, curl, zip, bcmath, intl, gd, pdo_mysql
+          tools: composer:v2
+          coverage: none
+
+      - name: Validate Composer
+        run: composer validate --no-check-publish
+
+      - name: Install production dependencies
+        run: |
+          composer install \
+            --no-dev \
+            --prefer-dist \
+            --optimize-autoloader \
+            --no-interaction \
+            --no-progress \
+            --no-scripts
+
+      - name: Setup Node.js
+        if: hashFiles('package.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build frontend assets
+        if: hashFiles('package-lock.json') != ''
+        run: |
+          npm ci
+          if node -e "process.exit(require('./package.json').scripts?.build ? 0 : 1)"; then
+            npm run build
+          fi
+
+      - name: Package Laravel
+        run: |
+          tar -czf "$RUNNER_TEMP/alakbar.tar.gz" \
+            --exclude=.git \
+            --exclude=.github \
+            --exclude=.env \
+            --exclude='.env.*' \
+            --exclude=node_modules \
+            --exclude=tests \
+            --exclude=storage/logs \
+            --exclude=storage/framework \
+            --exclude=storage/app \
+            --exclude=bootstrap/cache \
+            --exclude=.user.ini \
+            .
+
+      - name: Upload deployment artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: alakbar-production
+          path: ${{ runner.temp }}/alakbar.tar.gz
+          retention-days: 1
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy ke VPS sysbill
+    needs: build
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - alakbar
+      - production
+    timeout-minutes: 15
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: alakbar-production
+          path: ${{ runner.temp }}/alakbar-download
+
+      - name: Deploy Laravel
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          TARGET="/www/wwwroot/api.alakbar.or.id"
+          STAGING="$(mktemp -d "$RUNNER_TEMP/alakbar.XXXXXXXX")"
+
+          cleanup() {
+            rm -rf -- "$STAGING"
+            rm -rf -- "$RUNNER_TEMP/alakbar-download"
+          }
+          trap cleanup EXIT
+
+          tar -xzf \
+            "$RUNNER_TEMP/alakbar-download/alakbar.tar.gz" \
+            -C "$STAGING"
+
+          test -f "$STAGING/artisan"
+          test -f "$STAGING/vendor/autoload.php"
+          test -f "$STAGING/public/index.php"
+          test -d "$TARGET"
+          test -w "$TARGET"
+
+          mkdir -p \
+            "$TARGET/storage/app" \
+            "$TARGET/storage/framework/cache" \
+            "$TARGET/storage/framework/sessions" \
+            "$TARGET/storage/framework/views" \
+            "$TARGET/storage/logs" \
+            "$TARGET/bootstrap/cache"
+
+          rsync -rlt --delete \
+            --exclude='/.env' \
+            --exclude='/.env.*' \
+            --exclude='/.user.ini' \
+            --exclude='/.well-known/' \
+            --exclude='/404.html' \
+            --exclude='/502.html' \
+            --exclude='/storage/' \
+            --exclude='/bootstrap/cache/' \
+            --exclude='/public/storage' \
+            --exclude='/public/storage/' \
+            --exclude='/public/.user.ini' \
+            --exclude='/public/.well-known/' \
+            --exclude='/.git/' \
+            --exclude='/.github/' \
+            --exclude='/index.html' \
+            --exclude='/.htaccess' \
+            --no-perms --no-owner --no-group \
+            "$STAGING/" "$TARGET/"
+
+          echo "Deployment files synchronized."
+
+      - name: Verify deployment
+        shell: bash
+        run: |
+          set -e
+          TARGET="/www/wwwroot/api.alakbar.or.id"
+
+          test -f "$TARGET/artisan"
+          test -f "$TARGET/vendor/autoload.php"
+          test -f "$TARGET/public/index.php"
+
+          echo "Laravel deployment completed."
+          echo "Server: $(hostname)"
+          echo "Target: $TARGET"
