@@ -53,7 +53,17 @@ class PengajuanUpController extends Controller
             DB::beginTransaction();
                 if (!$kode) {
                     DB::select('call pengajuanupbendyas(@nomor)');
-                    $nomor = DB::table('counter')->select('pengajuanupbendyas')->first();
+                    $nomor = DB::table('counter')
+                        ->select('pengajuanupbendyas')
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (!$nomor || $nomor->pengajuanupbendyas === null) {
+                        throw new \RuntimeException(
+                            'Nomor pengajuan UP Yayasan belum tersedia. Hubungi administrator untuk memeriksa counter pengajuan.'
+                        );
+                    }
+
                     $semester = 'S1';
                     $kode = FormatingHelper::notrans($nomor->pengajuanupbendyas, 'UP', $semester,'YS');
                 }
