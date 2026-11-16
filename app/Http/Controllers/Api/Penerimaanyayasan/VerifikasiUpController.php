@@ -69,7 +69,17 @@ class VerifikasiUpController extends Controller
 
         try {
             DB::beginTransaction();
-                $cek_saldo = Saldo::where('pemilik','J000003')->where('jenis', 'Bank')->first();
+                $cek_saldo = Saldo::where('pemilik', 'J000003')
+                    ->where('jenis', 'Bank')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$cek_saldo) {
+                    throw new \RuntimeException(
+                        'Saldo Bank Bendahara Penerimaan Yayasan belum tersedia. Hubungi administrator untuk memeriksa data saldo.'
+                    );
+                }
+
                 if($validated['nilai_pengajuan'] > $cek_saldo->nominal){
                     return new JsonResponse(['message' => 'Saldo Tidak Mencukupi...!!!'],500);
                 }

@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
         $schedule->command('saldo:stok-opname')
             ->monthlyOn(1, '00:05')
+            ->timezone('Asia/Jakarta')
             ->withoutOverlapping();
     })
     ->withMiddleware(function (Middleware $middleware): void {
