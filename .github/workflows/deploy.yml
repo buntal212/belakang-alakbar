@@ -26,7 +26,7 @@ jobs:
       - name: Setup PHP 8.3
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.3"
+          php-version: '8.3'
           extensions: mbstring, xml, curl, zip, bcmath, intl, gd, pdo_mysql
           tools: composer:v2
           coverage: none
@@ -159,6 +159,13 @@ jobs:
           test -f "$TARGET/artisan"
           test -f "$TARGET/vendor/autoload.php"
           test -f "$TARGET/public/index.php"
+
+          echo "=== REFRESH LARAVEL CONFIGURATION ==="
+          (
+            cd "$TARGET"
+            php artisan optimize:clear
+            php artisan config:cache
+          )
 
           echo "Deployment files completed successfully."
           echo "Host: $(hostname)"

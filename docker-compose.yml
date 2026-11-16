@@ -1,91 +1,91 @@
 services:
-    app:
-        image: api-alakbar-app
-        build:
-            args:
-                user: alakbar
-                uid: 1001
-            context: ./
-            dockerfile: Dockerfile.dev
-        container_name: api-alakbar-app
-        working_dir: /var/www/
-        restart: unless-stopped
-        environment:
-            - COMPOSER_MEMORY_LIMIT=-1
-        volumes:
-            - ./:/var/www
-        networks:
-            - alakbarnet
-        depends_on:
-            - redis
+  app:
+    image: api-alakbar-app
+    build:
+      args:
+        user: alakbar
+        uid: 1001
+      context: ./
+      dockerfile: Dockerfile.dev
+    container_name: api-alakbar-app
+    working_dir: /var/www/
+    restart: unless-stopped
+    environment:
+      - COMPOSER_MEMORY_LIMIT=-1
+    volumes:
+      - ./:/var/www
+    networks:
+      - alakbarnet
+    depends_on:
+      - redis
 
-    reverb:
-        image: api-alakbar-app
-        container_name: api-alakbar-reverb
-        restart: unless-stopped
-        working_dir: /var/www
-        command: php artisan reverb:start --host=0.0.0.0 --port=6001
-        volumes:
-            - ./:/var/www
-        env_file:
-            - .env
-        ports:
-            - "6001:6001"
-        depends_on:
-            - app
-            - redis
-        networks:
-            - alakbarnet
+  reverb:
+    image: api-alakbar-app
+    container_name: api-alakbar-reverb
+    restart: unless-stopped
+    working_dir: /var/www
+    command: php artisan reverb:start --host=0.0.0.0 --port=6001
+    volumes:
+      - ./:/var/www
+    env_file:
+      - .env
+    ports:
+      - '6001:6001'
+    depends_on:
+      - app
+      - redis
+    networks:
+      - alakbarnet
 
-    nginx:
-        image: nginx:alpine
-        container_name: nginx_api-alakbar
-        restart: unless-stopped
-        depends_on:
-            - app
-        ports:
-            - "8196:80"
-        volumes:
-            - ./:/var/www
-            - ./docker-compose/nginx:/etc/nginx/conf.d
-        networks:
-            - alakbarnet
-        healthcheck:
-            test: ["CMD-SHELL", "curl -f http://localhost || exit 1"]
-            interval: 10s
-            timeout: 5s
-            retries: 5
-            start_period: 30s
+  nginx:
+    image: nginx:alpine
+    container_name: nginx_api-alakbar
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - '8196:80'
+    volumes:
+      - ./:/var/www
+      - ./docker-compose/nginx:/etc/nginx/conf.d
+    networks:
+      - alakbarnet
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
-    redis:
-        image: redis:7
-        container_name: redis-server-api-alakbar
-        restart: unless-stopped
-        volumes:
-            - redis_data:/data
-        ports:
-            - "26751:6379"
-        networks:
-            - alakbarnet
+  redis:
+    image: redis:7
+    container_name: redis-server-api-alakbar
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    ports:
+      - '26751:6379'
+    networks:
+      - alakbarnet
 
-    scheduler:
-        image: api-alakbar-app
-        container_name: api-alakbar-scheduler
-        command: ["php", "artisan", "schedule:work"]
-        restart: unless-stopped
-        depends_on:
-            - app
-            - redis
-        volumes:
-            - ./:/var/www
-        env_file:
-            - .env
-        networks:
-            - alakbarnet
+  scheduler:
+    image: api-alakbar-app
+    container_name: api-alakbar-scheduler
+    command: ['php', 'artisan', 'schedule:work']
+    restart: unless-stopped
+    depends_on:
+      - app
+      - redis
+    volumes:
+      - ./:/var/www
+    env_file:
+      - .env
+    networks:
+      - alakbarnet
 
 volumes:
-    redis_data:
+  redis_data:
 
 networks:
-    alakbarnet:
-        driver: bridge
+  alakbarnet:
+    driver: bridge

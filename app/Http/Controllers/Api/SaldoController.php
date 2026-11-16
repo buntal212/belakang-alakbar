@@ -6,13 +6,22 @@ use App\Events\SaldoUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Master\Saldo;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class SaldoController extends Controller
 {
-    public function index()
+    public function index(Request $request): JsonResponse
     {
-        $pemilik = request('jabatan');
+        $validated = $request->validate([
+            'jabatan' => ['required', 'string', 'max:100'],
+        ]);
+
+        $pemilik = $validated['jabatan'];
+
+        abort_unless($request->user()->canAccessSaldoJabatan($pemilik), 403);
+
         $data = Saldo::where('pemilik', $pemilik)->orderBy('jenis')->get();
+
         return new JsonResponse($data);
     }
 

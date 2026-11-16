@@ -63,4 +63,15 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Unit::class, 'unit', 'kode');
     }
+
+    /**
+     * Menentukan apakah pengguna dapat melihat saldo sebuah jabatan.
+     *
+     * Kode jabatan berasal dari data pengguna yang terautentikasi, bukan dari
+     * parameter request. Superadmin tetap dapat memantau seluruh saldo.
+     */
+    public function canAccessSaldoJabatan(string $jabatan): bool
+    {
+        return $this->kode === 'X00X' || $this->jabatan === $jabatan;
+    }
 }
